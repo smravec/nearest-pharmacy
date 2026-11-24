@@ -4,6 +4,8 @@ import { formatAddress, rankByDistance, toLatLng } from './overpass'
 import type { UnmeasuredPharmacy } from './overpass'
 
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/reverse'
+/** The server's maximum. */
+const RESULT_LIMIT = 50
 
 const OSM_TYPES: Record<string, string> = { N: 'node', W: 'way', R: 'relation' }
 
@@ -34,14 +36,20 @@ function parseFeature(feature: unknown): UnmeasuredPharmacy | undefined {
   }
 }
 
-/** Up to 50 pharmacies within 10 km. Photon has no phone numbers, websites or opening hours. */
-export async function queryPhoton(origin: LatLng, signal: AbortSignal): Promise<Pharmacy[]> {
+export interface PhotonResult {
+  pharmacies: Pharmacy[]
+  /** There may be more pharmacies further away. */
+  limitReached: boolean
+}
+
+/** The nearest pharmacies within 10 km. Photon has no phone numbers, websites or opening hours. */
+export async function queryPhoton(origin: LatLng, signal: AbortSignal): Promise<PhotonResult> {
   const params = new URLSearchParams({
     lat: String(origin.lat),
     lon: String(origin.lng),
     osm_tag: 'amenity:pharmacy',
     radius: '10', // km
-    limit: '50', // the server's maximum
+    limit: String(RESULT_LIMIT),
   })
   const body = await fetchJson(`${PHOTON_ENDPOINT}?${params}`, { signal })
 
@@ -49,5 +57,8 @@ export async function queryPhoton(origin: LatLng, signal: AbortSignal): Promise<
     throw new ServiceError('Unexpected Photon response')
   }
   const found = body.features.map(parseFeature).filter((p) => p !== undefined)
-  return rankByDistance(found, origin)
+  return {
+    pharmacies: rankByDistance(found, origin),
+    limitReached: body.features.length >= RESULT_LIMIT,
+  }
 }

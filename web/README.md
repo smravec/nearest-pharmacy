@@ -21,8 +21,8 @@ search works anywhere.
 1. **Location:** the browser's geolocation, asked for only on click, or an address search.
 2. **Pharmacies:** OpenStreetMap through [Overpass](https://overpass-api.de), within 1, 2, 5, then
    10 km, stopping at the first radius with a result.
-3. **Fallback:** Overpass is a free shared service and is sometimes at capacity. A quick failure is
-   retried once and an attempt gets at most 4 seconds. Then [Photon](https://photon.komoot.io)
+3. **Fallback:** Overpass is a free shared service and is sometimes at capacity. A quick failure
+   other than an HTTP 4xx is retried once, and an attempt gets at most 4 seconds. Then [Photon](https://photon.komoot.io)
    answers instead. It has no opening hours or phone numbers, and the page says so.
 4. **Order:** straight-line (haversine) distance. Walking time assumes 5 km/h and is labeled as an
    estimate, because there is no routing service.
@@ -34,6 +34,7 @@ search works anywhere.
 | Map tiles | OpenFreeMap, drawn by MapLibre GL JS |
 
 Coordinates or the search text go directly from the browser to these services. Nothing is stored.
+Directions opens Google Maps; for a searched address, its coordinates go along as the start.
 
 ## Decisions
 
@@ -62,7 +63,8 @@ Coordinates or the search text go directly from the browser to these services. N
 
 - The public services have no uptime guarantee.
 - OpenStreetMap entries can be missing or out of date.
-- Around a daylight saving switch, opening times within the changed hour can be an hour off.
+- On the day daylight saving starts in the browser's time zone, clock times within the skipped hour
+  count as an hour later when opening hours are evaluated.
 
 ## Layout
 
@@ -75,5 +77,8 @@ src/styles/      tokens and styles
 ```
 
 `vercel.json` sets the Content Security Policy. A new service has to be added to its `connect-src`.
+
+[opening_hours](https://github.com/opening-hours/opening_hours.js) is LGPL-3.0 and used unmodified, as
+its own chunk.
 
 Data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), ODbL.

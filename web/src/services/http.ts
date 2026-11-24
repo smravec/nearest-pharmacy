@@ -1,5 +1,12 @@
 export class ServiceError extends Error {
   override readonly name = 'ServiceError'
+  /** The HTTP status, when the service answered with an error. */
+  readonly status: number | undefined
+
+  constructor(message: string, options?: ErrorOptions & { status?: number }) {
+    super(message, options)
+    this.status = options?.status
+  }
 }
 
 export function withTimeout(signal: AbortSignal, ms: number): AbortSignal {
@@ -8,7 +15,7 @@ export function withTimeout(signal: AbortSignal, ms: number): AbortSignal {
 
 export async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
   const response = await fetch(url, init)
-  if (!response.ok) throw new ServiceError(`HTTP ${response.status}`)
+  if (!response.ok) throw new ServiceError(`HTTP ${response.status}`, { status: response.status })
   try {
     return await response.json()
   } catch (cause) {

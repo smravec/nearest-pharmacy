@@ -50,7 +50,7 @@ const PRIMER_ROWS = [
   },
   {
     icon: 'M12 21c-4-4.5-7-8-7-11a7 7 0 0 1 14 0c0 3-3 6.5-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
-    text: 'Your coordinates or search text go to public OpenStreetMap services to find pharmacies and draw the map.',
+    text: 'Your coordinates or search text go to public OpenStreetMap services to find pharmacies and draw the map. Directions opens Google Maps.',
   },
   {
     icon: 'M3 12c2.5-4 5.5-6 9-6s6.5 2 9 6c-2.5 4-5.5 6-9 6s-6.5-2-9-6zM4 20L20 4',

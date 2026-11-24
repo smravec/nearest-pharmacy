@@ -13,12 +13,15 @@ export function LiveRegion({ message }: { message: string }) {
 }
 
 // Opening status is left out: it loads later and refreshes every minute, which would re-announce.
-function readyMessage({ pharmacies, radiusM }: PharmacyResult): string {
+function readyMessage({ pharmacies, radiusM, truncated }: PharmacyResult): string {
   const [nearest] = pharmacies
   if (!nearest) return ''
   const distance = formatDistance(nearest.distanceM)
   const walk = formatWalk(nearest.walkMinutes)
-  return `Nearest pharmacy: ${nearest.name}, ${distance} away, about ${walk}. ${pharmacies.length} found within ${formatRadius(radiusM)}.`
+  const count = truncated
+    ? `Showing the nearest ${pharmacies.length}.`
+    : `${pharmacies.length} found within ${formatRadius(radiusM)}.`
+  return `Nearest pharmacy: ${nearest.name}, ${distance} away, about ${walk}. ${count}`
 }
 
 function stateMessage(state: SearchState, slow: boolean): string {
@@ -45,10 +48,11 @@ function stateMessage(state: SearchState, slow: boolean): string {
 }
 
 export function announcement(state: SearchState, geocode: GeocodeState, slow: boolean): string {
-  if (state.status !== 'locating' && state.status !== 'loading') {
-    if (geocode.status === 'searching') return 'Searching for the address.'
-    const error = geocodeErrorText(geocode)
-    if (error) return error
-  }
-  return stateMessage(state, slow)
+  if (geocode.status === 'searching') return 'Searching for the address.'
+  const message = stateMessage(state, slow)
+  const error = geocodeErrorText(geocode)
+  if (!error) return message
+  // Otherwise results that arrive after a failed address lookup would never be announced.
+  const finished = state.status === 'ready' || state.status === 'empty' || state.status === 'error'
+  return finished ? `${error} ${message}` : error
 }

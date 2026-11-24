@@ -394,12 +394,14 @@
 
 .np-map__message--loading {
   position: relative;
+  isolation: isolate;
 }
 
-/* A layer of its own, so the pulse doesn't fade the text. */
+/* Behind the text, so the pulse doesn't fade it. */
 .np-map__message--loading::before {
   position: absolute;
   inset: 0;
+  z-index: -1;
   background: var(--hairline);
   content: '';
   opacity: 0.6;

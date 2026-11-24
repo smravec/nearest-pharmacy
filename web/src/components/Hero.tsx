@@ -20,7 +20,7 @@ export function Hero({ state, children }: HeroProps) {
 
   return (
     <section className={origin ? 'np-hero np-hero--compact' : 'np-hero'} aria-labelledby="np-title">
-      <div className="np-hero__text">
+      <div>
         <h1 id="np-title">{title(origin)}</h1>
         {!origin && (
           <p className="np-hero__lead">

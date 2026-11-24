@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import { Attribution } from './components/Attribution'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
@@ -22,6 +23,9 @@ import { useKeyboard } from './hooks/useKeyboard'
 import { useOpenStates } from './hooks/useOpenStates'
 import { usePharmacySearch } from './hooks/usePharmacySearch'
 
+/** Where layout.css puts the list next to the map. */
+const TWO_COLUMNS = '(min-width: 960px)'
+
 const PharmacyMap = lazy(() => import('./components/PharmacyMap'))
 
 interface ResultsProps {
@@ -40,8 +44,11 @@ function Results({ origin, result, selectedId, headingRef, rowRefs, onSelect }: 
   const nearest = pharmacies[0]
 
   function handlePin(id: string) {
-    onSelect(id)
-    rowRefs.current.get(id)?.scrollIntoView({ block: 'nearest' })
+    // Rendered first, so that the scroll includes the links the selected item gains.
+    flushSync(() => onSelect(id))
+    // In one column, scrolling to the list would move the map out of view.
+    if (!window.matchMedia(TWO_COLUMNS).matches) return
+    rowRefs.current.get(id)?.closest('li')?.scrollIntoView({ block: 'nearest' })
   }
 
   return (
@@ -125,6 +132,11 @@ export function App() {
     if (state.status !== 'loading') setSlowOrigin(null)
   }
 
+  // Editing the address again means staying in the field when the results arrive.
+  function handleEdit() {
+    pendingFocus.current = null
+  }
+
   function handleLocate() {
     beginRequest()
     locate()
@@ -172,6 +184,7 @@ export function App() {
             <LocationSearch
               geocode={geocode}
               locating={state.status === 'locating'}
+              onEdit={handleEdit}
               onSearch={handleSearch}
               onLocate={handleLocate}
               inputRef={inputRef}

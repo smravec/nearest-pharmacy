@@ -23,8 +23,8 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 // The library reads a Date's local fields. A "wall" Date is one whose local fields, in the browser's
-// zone, show the pharmacy's clock. Converting is up to an hour off within DST hours (the repeated
-// hour in the pharmacy's zone, the skipped hour in the browser's), which is accepted.
+// zone, show the pharmacy's clock. It can't show the hour that the browser's zone skips when daylight
+// saving starts: on that day, clock times within it count as an hour later, which is accepted.
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
 
@@ -61,10 +61,6 @@ function zoneClock(instant: Date, zone: string): number {
   )
 }
 
-function zoneOffset(instant: Date, zone: string): number {
-  return zoneClock(instant, zone) - Math.floor(instant.getTime() / 1000) * 1000
-}
-
 function toWall(instant: Date, zone: string): Date {
   const clock = new Date(zoneClock(instant, zone))
   return new Date(
@@ -75,20 +71,6 @@ function toWall(instant: Date, zone: string): Date {
     clock.getUTCMinutes(),
     clock.getUTCSeconds(),
   )
-}
-
-function fromWall(wall: Date, zone: string): Date {
-  const clock = Date.UTC(
-    wall.getFullYear(),
-    wall.getMonth(),
-    wall.getDate(),
-    wall.getHours(),
-    wall.getMinutes(),
-    wall.getSeconds(),
-  )
-  // The second pass uses the offset at the target itself, which matters across a DST switch.
-  const estimate = clock - zoneOffset(new Date(clock), zone)
-  return new Date(clock - zoneOffset(new Date(estimate), zone))
 }
 
 function stateAt(hours: OpeningHours, wall: Date): OpenState['status'] {
@@ -137,9 +119,10 @@ function describe(hours: OpeningHours, zone: string, now: Date): OpenStatus {
   const next = nextStateChange(hours, wall)
   if (!next) return status === 'open' ? { status, label, detail: '24 hours' } : { status, label }
 
-  const nextChange = fromWall(next, zone)
-  if (nextChange <= now) return { status, label }
-  return { status, label, nextChange, detail: formatChange(status, wall, next) }
+  // Closed until something we can't evaluate, such as "by appointment", is not an opening time.
+  const opensUnknown = status === 'closed' && stateAt(hours, next) === 'unknown'
+  if (next <= wall || opensUnknown) return { status, label }
+  return { status, label, detail: formatChange(status, wall, next) }
 }
 
 async function load(): Promise<EvaluateHours> {

@@ -35,7 +35,6 @@ export interface Pharmacy {
 /** `unknown` covers missing and unparseable hours. It never means closed. */
 export interface OpenState {
   status: 'open' | 'closed' | 'unknown'
-  nextChange?: Date
 }
 
 export interface PharmacyResult {
@@ -44,6 +43,8 @@ export interface PharmacyResult {
   /** The radius that produced the result, in meters. */
   radiusM: number
   source: DataSource
+  /** The source's result limit was reached before the radius, so more pharmacies may lie within it. */
+  truncated?: boolean
 }
 
 export type LocationProblem = 'denied' | 'unavailable' | 'timeout' | 'unsupported'

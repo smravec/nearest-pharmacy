@@ -17,7 +17,8 @@ export function formatWalk(minutes: number): string {
 /** `tel:` link for the first number in an OSM phone value, or undefined if it can't be dialed. */
 export function telHref(phone?: string): string | undefined {
   const first = phone?.split(/[;,]/)[0]?.trim()
-  if (!first || /\p{L}/u.test(first)) return undefined
+  // A slash either separates two numbers or belongs to an area code, and we can't tell which.
+  if (!first || /[\p{L}/]/u.test(first)) return undefined
 
   const international = first.startsWith('+')
   // "+358 (0)9 …": the trunk zero is only dialed without the country code.

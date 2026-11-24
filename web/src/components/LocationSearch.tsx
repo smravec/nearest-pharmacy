@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import type { RefObject, SubmitEvent } from 'react'
+import type { ChangeEvent, RefObject, SubmitEvent } from 'react'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import type { GeocodeState } from '../hooks/usePharmacySearch'
 
 interface LocationSearchProps {
   geocode: GeocodeState
   locating: boolean
+  onEdit(): void
   onSearch(query: string): void
   onLocate(): void
   inputRef: RefObject<HTMLInputElement | null>
@@ -22,11 +23,23 @@ export function geocodeErrorText(geocode: GeocodeState): string | null {
   }
 }
 
-export function LocationSearch({ geocode, locating, onSearch, onLocate, inputRef }: LocationSearchProps) {
+export function LocationSearch({
+  geocode,
+  locating,
+  onEdit,
+  onSearch,
+  onLocate,
+  inputRef,
+}: LocationSearchProps) {
   const [query, setQuery] = useState('')
   const hasKeyboard = useMediaQuery('(hover: hover) and (pointer: fine)')
   const searching = geocode.status === 'searching'
   const error = geocodeErrorText(geocode)
+
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    setQuery(event.target.value)
+    onEdit()
+  }
 
   function handleLocate() {
     if (!locating) onLocate()
@@ -63,10 +76,10 @@ export function LocationSearch({ geocode, locating, onSearch, onLocate, inputRef
             type="text"
             inputMode="search"
             enterKeyHint="search"
-            autoComplete="street-address"
+            autoComplete="off"
             placeholder="For example Kallio, Helsinki"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={handleChange}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? 'np-q-error' : undefined}
           />

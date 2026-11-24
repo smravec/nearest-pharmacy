@@ -29,10 +29,9 @@ export function PharmacyList({
   onSelect,
   onEnterMap,
 }: PharmacyListProps) {
-  const { pharmacies, radiusM, source } = result
+  const { pharmacies, radiusM, source, truncated } = result
   const hasKeyboard = useMediaQuery('(hover: hover) and (pointer: fine)')
-  const [lastFocused, setLastFocused] = useState<{ result: PharmacyResult; id: string } | null>(null)
-  const lastFocusedId = lastFocused?.result === result ? lastFocused.id : null
+  const [lastFocusedId, setLastFocusedId] = useState<string | null>(null)
   const tabStopId = selectedId ?? lastFocusedId ?? pharmacies[0]?.id
 
   function moveTo(index: number) {
@@ -72,8 +71,9 @@ export function PharmacyList({
       <div className="np-list">
         <div className="np-list__head">
           <h2 id="np-list-title">
-            {pharmacies.length} {pharmacies.length === 1 ? 'pharmacy' : 'pharmacies'} within{' '}
-            {formatRadius(radiusM)}
+            {truncated
+              ? `Nearest ${pharmacies.length} pharmacies`
+              : `${pharmacies.length} ${pharmacies.length === 1 ? 'pharmacy' : 'pharmacies'} within ${formatRadius(radiusM)}`}
           </h2>
           {hasKeyboard && (
             <p className="np-list__hint">Use ↑ and ↓ to move, Enter to show on the map, Esc to clear.</p>
@@ -102,7 +102,7 @@ export function PharmacyList({
                   aria-controls={selected ? panelId : undefined}
                   aria-current={selected ? 'true' : undefined}
                   onClick={() => onSelect(selected ? null : id)}
-                  onFocus={() => setLastFocused({ result, id })}
+                  onFocus={() => setLastFocusedId(id)}
                   onKeyDown={(event) => handleKeyDown(event, index, id)}
                 >
                   <span className="np-row__rank" aria-hidden="true">
