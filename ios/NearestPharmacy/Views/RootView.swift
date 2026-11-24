@@ -119,7 +119,7 @@ private struct ResultsView: View {
                             // VoiceOver reads the results before the map's pins.
                             .accessibilitySortPriority(1)
                             .frame(
-                                width: isWide ? min(400, size.width * 0.45) : nil,
+                                width: isWide ? panelWidth(in: size.width) : nil,
                                 height: isWide ? nil : panelHeight(in: size.height)
                             )
                     }
@@ -128,6 +128,10 @@ private struct ResultsView: View {
         }
         // The search sheet's keyboard must not make this look like a short, wide screen.
         .ignoresSafeArea(.keyboard)
+    }
+
+    private func panelWidth(in width: CGFloat) -> CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? width * 0.6 : min(400, width * 0.45)
     }
 
     private func panelHeight(in height: CGFloat) -> CGFloat {

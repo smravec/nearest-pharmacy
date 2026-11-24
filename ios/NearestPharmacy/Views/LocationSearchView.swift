@@ -48,6 +48,8 @@ struct LocationSearchView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                        // The search field has its own "Close".
+                        .accessibilityLabel("Close search")
                 }
             }
         }
