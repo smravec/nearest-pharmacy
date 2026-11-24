@@ -108,7 +108,7 @@ private extension MapCameraPosition {
         guard rect.width <= MKMapSize.world.width / 2 else { return .automatic }
 
         // Pins stand above their point, so the northernmost one needs headroom.
-        let headroom = rect.height * 0.35
+        let headroom = rect.height * 0.6
         rect.origin.y -= headroom
         rect.size.height += headroom
 
