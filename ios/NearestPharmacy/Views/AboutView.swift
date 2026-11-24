@@ -12,6 +12,7 @@ struct AboutView: View {
                 section("Data") {
                     Text("Pharmacies come from OpenStreetMap, searched with Photon. They can be out of date. Place details come from Apple Maps. Check with the pharmacy before you travel.")
                     AttributionView()
+                        .font(.footnote)
                 }
                 section("Distances") {
                     Text("Distances are straight lines. Walking times assume 5 km/h.")

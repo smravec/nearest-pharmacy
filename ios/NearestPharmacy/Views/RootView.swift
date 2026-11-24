@@ -25,8 +25,10 @@ struct RootView: View {
         .sheet(isPresented: $isAboutPresented) { AboutView() }
         // Not keyed on `.loading`: the state doesn't change when a search was already loading,
         // and a location arriving late must not close the sheet while someone types.
-        .onChange(of: model.isResolvingPlace) { _, isResolving in
-            if !isResolving, model.placeSearchFailure == nil { isSearchPresented = false }
+        .onChange(of: model.resolvedPlaceCount) { isSearchPresented = false }
+        // Not `onDismiss`: that waits for the animation, during which a place could still resolve.
+        .onChange(of: isSearchPresented) { _, isPresented in
+            if !isPresented { model.cancelPlaceLookup() }
         }
         .onChange(of: model.announcement) { _, announcement in
             if let announcement { post(announcement) }
@@ -65,16 +67,21 @@ struct RootView: View {
             Button(action: presentSearch) {
                 Label("Search for a place", systemImage: "magnifyingglass")
             }
-            Button {
-                isAboutPresented = true
-            } label: {
+            Button(action: presentAbout) {
                 Label("About", systemImage: "info.circle")
             }
         }
     }
 
+    // Details arriving later would try to open a second sheet.
     private func presentSearch() {
+        model.cancelDetails()
         isSearchPresented = true
+    }
+
+    private func presentAbout() {
+        model.cancelDetails()
+        isAboutPresented = true
     }
 
     private func post(_ announcement: Announcement) {
@@ -149,11 +156,11 @@ private struct ResultsPanel: View {
                             .id(nearest.id)
                     }
                     PharmacyList(model: model)
-                    AttributionView()
                 }
                 .padding()
             }
             .background(Theme.ground)
+            .safeAreaInset(edge: .bottom, spacing: 0) { PinnedAttribution() }
             .onChange(of: model.selectedID) { _, selectedID in
                 guard let selectedID else { return }
                 withAnimation(reduceMotion ? nil : .default) {
@@ -161,6 +168,22 @@ private struct ResultsPanel: View {
                 }
             }
         }
+    }
+}
+
+/// OpenStreetMap's license requires the credit to be visible along with the results.
+private struct PinnedAttribution: View {
+    var body: some View {
+        AttributionView()
+            .font(.caption)
+            // Larger text would leave little room for the results. About has it at full size.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .background(Theme.sheet)
+            .overlay(alignment: .top) {
+                Theme.hairline.frame(height: 1)
+            }
     }
 }
 

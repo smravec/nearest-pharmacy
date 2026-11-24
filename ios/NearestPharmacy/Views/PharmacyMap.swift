@@ -5,6 +5,7 @@ struct PharmacyMap: View {
     private struct Content: Equatable {
         let pharmacies: [Pharmacy]
         let selectedID: Pharmacy.ID?
+        let listSelectionCount: Int
     }
 
     let model: AppModel
@@ -23,15 +24,23 @@ struct PharmacyMap: View {
             .ignoresSafeArea(edges: [.horizontal, .top])
             .overlay(alignment: .topTrailing) { controls }
             .mapScope(scope)
-            // One handler for both, so the automatic selection that comes with new results
+            // One handler for all, so the automatic selection that comes with new results
             // doesn't replace the view of all of them.
-            .onChange(of: Content(pharmacies: model.pharmacies, selectedID: model.selectedID)) { old, new in
+            .onChange(of: content) { old, new in
                 if new.pharmacies != old.pharmacies {
                     position = .fitting(model.origin, new.pharmacies)
                 } else if let selected = new.pharmacies.first(where: { $0.id == new.selectedID }) {
                     move(to: .region(around: selected))
                 }
             }
+    }
+
+    private var content: Content {
+        Content(
+            pharmacies: model.pharmacies,
+            selectedID: model.selectedID,
+            listSelectionCount: model.listSelectionCount
+        )
     }
 
     private var map: some View {

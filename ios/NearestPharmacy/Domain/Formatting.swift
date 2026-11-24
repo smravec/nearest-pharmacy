@@ -1,7 +1,7 @@
 import Foundation
 
 /// Distances and walking times, always metric, as shown and as spoken by VoiceOver.
-nonisolated enum Format {
+enum Format {
     private static let locale = Locale(identifier: "en_GB")
 
     static func distance(_ meters: Double) -> String {

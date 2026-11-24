@@ -15,9 +15,14 @@ final class AppModel {
     private(set) var origin: Origin?
     private(set) var suggestions: [PlaceSuggestion] = []
     private(set) var isResolvingPlace = false
+    /// Grows each time a chosen or submitted place is found, which is when the search sheet closes.
+    private(set) var resolvedPlaceCount = 0
     private(set) var placeSearchFailure: SearchFailure?
     private(set) var detailsLoadingID: Pharmacy.ID?
     private(set) var detailsUnavailableID: Pharmacy.ID?
+    private(set) var detailsFailedID: Pharmacy.ID?
+    /// Grows with each tap in the list, so a tap on the selected pharmacy recenters the map too.
+    private(set) var listSelectionCount = 0
     private(set) var announcement: Announcement?
 
     var query = "" {
@@ -25,6 +30,7 @@ final class AppModel {
             guard query != oldValue else { return }
             placeSearchFailure = nil
             guard !suppressSuggestions else { return }
+            cancelPlaceLookup()
             acceptsSuggestions = true
             places.update(query: query)
         }
@@ -124,7 +130,7 @@ final class AppModel {
 
     func choose(_ suggestion: PlaceSuggestion) {
         suppressSuggestions = true
-        query = suggestion.title
+        query = suggestion.fullName
         suppressSuggestions = false
         closeSuggestions()
         resolvePlace { [places] in try await places.resolve(suggestion) }
@@ -158,27 +164,51 @@ final class AppModel {
         lastAction = nil
     }
 
+    func cancelPlaceLookup() {
+        placeTask?.cancel()
+        placeGeneration += 1
+        isResolvingPlace = false
+    }
+
     // MARK: - One pharmacy
 
+    /// For taps in the list. The map binds `selectedID` itself.
+    func select(_ id: Pharmacy.ID) {
+        selectedID = id
+        listSelectionCount += 1
+    }
+
     func showDetails(for pharmacy: Pharmacy) {
-        detailsTask?.cancel()
-        detailsGeneration += 1
-        detailItem = nil
-        detailsUnavailableID = nil
+        clearDetails()
         detailsLoadingID = pharmacy.id
 
         let generation = detailsGeneration
         detailsTask = Task {
-            let item = await details.mapItem(for: pharmacy)
-            guard generation == detailsGeneration else { return }
-            detailsLoadingID = nil
-            if let item {
-                detailItem = item
-            } else {
-                detailsUnavailableID = pharmacy.id
-                announce("Apple Maps has no details for this pharmacy")
+            do {
+                let item = try await details.mapItem(for: pharmacy)
+                guard generation == detailsGeneration else { return }
+                detailsLoadingID = nil
+                if let item {
+                    detailItem = item
+                } else {
+                    detailsUnavailableID = pharmacy.id
+                    announce("Apple Maps has no details for this pharmacy")
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard generation == detailsGeneration else { return }
+                detailsLoadingID = nil
+                detailsFailedID = pharmacy.id
+                announce("Couldn't reach Apple Maps. Try again.")
             }
         }
+    }
+
+    func cancelDetails() {
+        detailsTask?.cancel()
+        detailsGeneration += 1
+        detailsLoadingID = nil
     }
 
     func openDirections(to pharmacy: Pharmacy) {
@@ -194,15 +224,16 @@ final class AppModel {
 
     private func cancelAll() {
         searchTask?.cancel()
-        placeTask?.cancel()
-        detailsTask?.cancel()
         searchGeneration += 1
-        placeGeneration += 1
-        detailsGeneration += 1
-        isResolvingPlace = false
+        cancelPlaceLookup()
+        clearDetails()
+    }
+
+    private func clearDetails() {
+        cancelDetails()
         detailItem = nil
-        detailsLoadingID = nil
         detailsUnavailableID = nil
+        detailsFailedID = nil
     }
 
     private func startFinding(from origin: Origin) {
@@ -231,8 +262,7 @@ final class AppModel {
 
     /// Leaves a running search alone until the place is known: if the lookup fails, its result still shows.
     private func resolvePlace(_ resolve: @escaping @MainActor () async throws -> Origin) {
-        placeTask?.cancel()
-        placeGeneration += 1
+        cancelPlaceLookup()
         isResolvingPlace = true
         placeSearchFailure = nil
 
@@ -242,6 +272,7 @@ final class AppModel {
                 let place = try await resolve()
                 guard generation == placeGeneration else { return }
                 startFinding(from: place)
+                resolvedPlaceCount += 1
             } catch is CancellationError {
                 return
             } catch {
@@ -303,7 +334,7 @@ final class AppModel {
     private static func message(for failure: SearchFailure) -> String {
         switch failure {
         case .offline: "You're offline."
-        case .serviceUnavailable: "The pharmacy search isn't responding."
+        case .serviceUnavailable: "The search service couldn't be reached. This doesn't mean there are no pharmacies nearby."
         case .locationUnavailable: "Your location couldn't be found."
         case .placeNotFound: "No place found for that search."
         }

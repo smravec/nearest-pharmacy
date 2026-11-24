@@ -39,18 +39,17 @@ final class PlaceSearch: NSObject, PlaceSearching {
 
     func resolve(_ suggestion: PlaceSuggestion) async throws -> Origin {
         guard let completion = completions[suggestion.id] ?? previousCompletions[suggestion.id] else {
-            let parts = [suggestion.title, suggestion.subtitle].filter { !$0.isEmpty }
-            return try await resolve(text: parts.joined(separator: ", "))
+            return try await resolve(text: suggestion.fullName)
         }
         let request = MKLocalSearch.Request(completion: completion)
-        return try await firstPlace(for: request) { _ in suggestion.title }
+        return try await firstPlace(for: request) { _ in suggestion.fullName }
     }
 
     func resolve(text: String) async throws -> Origin {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = text
         request.resultTypes = Self.resultTypes
-        return try await firstPlace(for: request) { $0.name ?? text }
+        return try await firstPlace(for: request) { Self.label(for: $0) ?? text }
     }
 
     private func firstPlace(
@@ -71,16 +70,37 @@ final class PlaceSearch: NSObject, PlaceSearching {
                 source: .search
             )
         } catch {
-            throw Task.isCancelled ? CancellationError() : Self.mapped(error)
+            throw Task.isCancelled ? CancellationError() : SearchFailure(mapKitError: error)
         }
     }
 
-    private static func mapped(_ error: any Error) -> any Error {
-        if error is CancellationError || error is SearchFailure { return error }
-        if let error = error as? MKError, error.code == .placemarkNotFound {
-            return SearchFailure.placeNotFound
+    /// "Springfield, MO, United States", without the parts that repeat an earlier one.
+    private static func label(for item: MKMapItem) -> String? {
+        let placemark = item.placemark
+        let parts = [item.name, placemark.locality, placemark.administrativeArea, placemark.country]
+        var label: [String] = []
+        for case let part? in parts where !part.isEmpty {
+            let isRepeated = label.contains {
+                $0.compare(part, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+            }
+            if !isRepeated { label.append(part) }
         }
-        return isOffline(error) ? SearchFailure.offline : SearchFailure.serviceUnavailable
+        return label.isEmpty ? nil : label.joined(separator: ", ")
+    }
+}
+
+extension SearchFailure {
+    init(mapKitError error: any Error) {
+        if let failure = error as? SearchFailure {
+            self = failure
+        } else if Self.isOffline(error) {
+            // Checked first, so "not found" is only ever the service's own answer.
+            self = .offline
+        } else if (error as? MKError)?.code == .placemarkNotFound {
+            self = .placeNotFound
+        } else {
+            self = .serviceUnavailable
+        }
     }
 
     /// MapKit wraps network errors, so the cause is somewhere in the underlying chain.

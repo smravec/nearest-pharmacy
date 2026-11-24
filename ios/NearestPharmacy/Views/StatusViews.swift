@@ -45,10 +45,9 @@ struct SearchStatusView: View {
             message: "Search for an address instead, or allow location in Settings."
         ) {
             primarySearch
-            Button("Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-            }
-            .buttonStyle(SecondaryPillStyle())
+            Button("Try again", action: model.retry)
+                .buttonStyle(SecondaryPillStyle())
+            openSettings
         }
     }
 
@@ -77,7 +76,7 @@ struct SearchStatusView: View {
             StatusView(
                 icon: "exclamationmark.triangle",
                 title: "Pharmacy search isn't responding",
-                message: "This is a problem with the search service, not a sign that there are no pharmacies nearby."
+                message: "The search service couldn't be reached. This doesn't mean there are no pharmacies nearby."
             ) {
                 tryAgain
                 secondarySearch
@@ -90,6 +89,7 @@ struct SearchStatusView: View {
             ) {
                 tryAgain
                 secondarySearch
+                openSettings
             }
         case .placeNotFound:
             StatusView(
@@ -115,6 +115,13 @@ struct SearchStatusView: View {
     private var secondarySearch: some View {
         Button("Search for a place", action: search)
             .buttonStyle(SecondaryPillStyle())
+    }
+
+    private var openSettings: some View {
+        Button("Open Settings") {
+            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        }
+        .buttonStyle(SecondaryPillStyle())
     }
 }
 

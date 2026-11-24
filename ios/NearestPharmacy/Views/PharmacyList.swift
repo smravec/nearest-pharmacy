@@ -33,7 +33,7 @@ private struct PharmacyRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
-                model.selectedID = pharmacy.id
+                model.select(pharmacy.id)
             } label: {
                 summary
             }
@@ -47,17 +47,7 @@ private struct PharmacyRow: View {
                 PharmacyActions(model: model, pharmacy: pharmacy)
             }
         }
-        .padding()
-        .background(Theme.sheet)
-        .overlay(alignment: .leading) {
-            if isSelected {
-                Theme.teal.frame(width: 3)
-            }
-        }
-        .clipShape(.rect(cornerRadius: Theme.cardRadius))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.hairline)
-        }
+        .pharmacyCard(isSelected: isSelected)
     }
 
     private var summary: some View {
@@ -126,7 +116,6 @@ struct AttributionView: View {
                 }
             }
         }
-        .font(.footnote)
         .foregroundStyle(Theme.body)
         // Inside a Form row, the default style would open both links with one tap.
         .buttonStyle(.borderless)

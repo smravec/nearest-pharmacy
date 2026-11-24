@@ -7,15 +7,19 @@ struct NearestCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            summary
+            Button {
+                model.select(pharmacy.id)
+            } label: {
+                summary
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(spokenSummary)
+            .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : .isHeader)
+            .accessibilityFocused(focus)
+
             PharmacyActions(model: model, pharmacy: pharmacy)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.sheet, in: .rect(cornerRadius: Theme.cardRadius))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.hairline)
-        }
+        .pharmacyCard(isSelected: isSelected)
     }
 
     private var summary: some View {
@@ -38,10 +42,13 @@ struct NearestCard: View {
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spokenSummary)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityFocused(focus)
+        .multilineTextAlignment(.leading)
+        .frame(maxWidth: .infinity, minHeight: Theme.minimumTarget, alignment: .leading)
+        .contentShape(.rect)
+    }
+
+    private var isSelected: Bool {
+        model.selectedID == pharmacy.id
     }
 
     private var spokenSummary: String {
@@ -56,6 +63,23 @@ struct NearestCard: View {
     }
 }
 
+extension View {
+    /// The bar marks the pharmacy selected on the map.
+    func pharmacyCard(isSelected: Bool) -> some View {
+        padding()
+            .background(Theme.sheet)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Theme.teal.frame(width: 3)
+                }
+            }
+            .clipShape(.rect(cornerRadius: Theme.cardRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.hairline)
+            }
+    }
+}
+
 struct PharmacyActions: View {
     let model: AppModel
     let pharmacy: Pharmacy
@@ -66,11 +90,19 @@ struct PharmacyActions: View {
                 HStack(spacing: 12) { buttons }
                 VStack(alignment: .leading, spacing: 12) { buttons }
             }
-            if model.detailsUnavailableID == pharmacy.id {
-                Text("Apple Maps has no details for this pharmacy.")
+            if let detailsMessage {
+                Text(detailsMessage)
                     .font(.subheadline)
                     .foregroundStyle(Theme.body)
             }
+        }
+    }
+
+    private var detailsMessage: String? {
+        switch pharmacy.id {
+        case model.detailsUnavailableID: "Apple Maps has no details for this pharmacy."
+        case model.detailsFailedID: "Couldn't reach Apple Maps. Try again."
+        default: nil
         }
     }
 

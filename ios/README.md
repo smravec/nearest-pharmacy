@@ -18,8 +18,8 @@ To set a position in the simulator: Features › Location › Custom Location, f
 2. **Which pharmacies.** [Photon](https://photon.komoot.io) searches OpenStreetMap within 5, 15, 50,
    then 100 km, stopping at the first radius with a result. The app sorts them by straight-line distance.
 3. **Details.** Photon has no opening hours. Tapping Details looks the pharmacy up in Apple Maps and
-   shows Apple's place card, but only if the category, distance (150 m) and name all match. Otherwise
-   the app says there are no details.
+   shows Apple's place card, but only if the category, distance (150 m at most) and name all match. Otherwise
+   the app says there are no details, or that Apple Maps couldn't be reached.
 
 ### Why not MapKit's pharmacy search?
 
@@ -39,7 +39,7 @@ tenth. So OpenStreetMap decides what is nearest, and Apple Maps only adds detail
 | `Design/` | Colors, button styles, assets |
 
 The services sit behind protocols, so `AppModel` doesn't depend on the network or on location.
-Starting a new search cancels the previous one, and a late result from an old search is ignored.
+Results of a search that has been replaced are ignored, even if they arrive late.
 
 In Debug builds the launch argument `-failPharmacySearch` makes the first search fail, to show the
 error screen and Try again.

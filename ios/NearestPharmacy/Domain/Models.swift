@@ -73,6 +73,11 @@ struct PlaceSuggestion: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let subtitle: String
+
+    /// The title alone may name several places.
+    var fullName: String {
+        [title, subtitle].filter { !$0.isEmpty }.joined(separator: ", ")
+    }
 }
 
 protocol PharmacyFinding: Sendable {
@@ -100,5 +105,6 @@ protocol PlaceSearching: AnyObject {
 @MainActor
 protocol PlaceDetailing: AnyObject {
     /// The Apple Maps place for this pharmacy, or nil when none matches confidently.
-    func mapItem(for pharmacy: Pharmacy) async -> MKMapItem?
+    /// Throws `SearchFailure` or `CancellationError`.
+    func mapItem(for pharmacy: Pharmacy) async throws -> MKMapItem?
 }
