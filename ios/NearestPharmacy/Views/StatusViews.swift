@@ -12,7 +12,7 @@ struct SearchStatusView: View {
         case .locating: locating
         case .loading(let origin): loading(origin)
         case .denied: denied
-        case .empty(let radiusKilometers): empty(radiusKilometers)
+        case .empty(let origin, let radiusKilometers): empty(near: origin, radiusKilometers)
         case .failed(let failure, let origin): failed(failure, near: origin)
         case .idle, .ready: EmptyView()
         }
@@ -41,8 +41,8 @@ struct SearchStatusView: View {
     private var denied: some View {
         StatusView(
             icon: "location.slash",
-            title: "Location is off",
-            message: "Search for an address instead, or allow location in Settings."
+            title: "Location is off for this app",
+            message: "Search for a place instead, or allow location in Settings."
         ) {
             primarySearch
             Button("Try again", action: model.retry)
@@ -51,14 +51,14 @@ struct SearchStatusView: View {
         }
     }
 
-    private func empty(_ radiusKilometers: Int) -> some View {
+    private func empty(near origin: Origin, _ radiusKilometers: Int) -> some View {
         StatusView(
             icon: "mappin.slash",
             title: "No pharmacies found",
             message: "There are none in OpenStreetMap within \(radiusKilometers) km."
         ) {
             primarySearch
-            searchInAppleMaps(near: nil)
+            searchInAppleMaps(near: origin)
         }
     }
 
@@ -81,8 +81,8 @@ struct SearchStatusView: View {
                 message: failure.message
             ) {
                 tryAgain
-                secondarySearch
                 searchInAppleMaps(near: origin)
+                secondarySearch
             }
         case .locationUnavailable:
             StatusView(

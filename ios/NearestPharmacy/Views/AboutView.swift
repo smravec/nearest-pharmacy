@@ -15,7 +15,7 @@ struct AboutView: View {
                         .font(.footnote)
                 }
                 section("Distances") {
-                    Text("Distances are straight lines. The nearest pharmacy's walking time is Apple's route. Marked ~, it is an estimate along the straight line at 5 km/h. Over 3 km, no walking time is shown.")
+                    Text("Distances are straight lines. The nearest pharmacy's walking time is Apple's route. Marked ~, it is an estimate along the straight line at 5\u{00A0}km\u{2060}/\u{2060}h. Over 3 km, no walking time is shown.")
                 }
                 section("Privacy") {
                     Text("Your position, or the place you search for, is sent to Photon, rounded to about 100 m, and to Apple for the walking route. Apple also gets your place searches and the pharmacies looked up for details. Tapping Google Maps sends that pharmacy's name and address, or its position, to Google. The app has no accounts or analytics.")

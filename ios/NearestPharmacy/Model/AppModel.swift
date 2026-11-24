@@ -30,6 +30,8 @@ final class AppModel {
 
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var detailsTask: Task<Void, Never>?
+    /// The automatic lookup of the nearest pharmacy. A tap on its details waits for it.
+    @ObservationIgnored private var nearestLookup: (id: Pharmacy.ID, task: Task<Void, Never>)?
 
     init(
         finder: any PharmacyFinding,
@@ -90,6 +92,8 @@ final class AppModel {
     func reset() {
         searchTask?.cancel()
         detailsTask?.cancel()
+        nearestLookup?.task.cancel()
+        nearestLookup = nil
         state = .idle
         routeWalk = nil
         details = [:]
@@ -111,7 +115,7 @@ final class AppModel {
     private func show(_ results: PharmacyResults, from origin: Origin) async {
         let count = results.pharmacies.count
         guard let nearest = results.pharmacies.first else {
-            state = .empty(radiusKilometers: results.radiusKilometers)
+            state = .empty(origin, radiusKilometers: results.radiusKilometers)
             VoiceOver.announce("No pharmacies found within \(results.radiusKilometers) kilometres.")
             return
         }
@@ -121,9 +125,8 @@ final class AppModel {
         let found = count == 1 ? "1 pharmacy found." : "\(count) pharmacies found."
         VoiceOver.announce(origin.isApproximate ? "\(found) Your location is approximate." : found)
 
-        async let walk: Void = loadWalk(from: origin, to: nearest)
-        async let place: Void = loadPlace(of: nearest)
-        _ = await (walk, place)
+        nearestLookup = (nearest.id, Task { await loadPlace(of: nearest) })
+        await loadWalk(from: origin, to: nearest)
     }
 
     /// Skipped when the origin is approximate: a route would look more precise than it is.
@@ -134,12 +137,11 @@ final class AppModel {
         routeWalk = walk
     }
 
-    /// Finds the phone number without a tap. A failure stays silent, because Details tries again.
+    /// Finds the phone number without a tap. A failure stays silent, because a tap on the details tries again.
     private func loadPlace(of pharmacy: Pharmacy) async {
         do {
             let item = try await maps.mapItem(for: pharmacy)
-            // A tap on Details is already asking the same question.
-            guard !Task.isCancelled, details[pharmacy.id] != .loading else { return }
+            guard !Task.isCancelled else { return }
             details[pharmacy.id] = item.map(PlaceDetails.found) ?? .unmatched
         } catch {}
     }
@@ -164,16 +166,21 @@ final class AppModel {
             return
         }
         details[pharmacy.id] = .loading
+        let pending = nearestLookup?.id == pharmacy.id ? nearestLookup?.task : nil
         detailsTask = Task {
-            do {
-                let item = try await maps.mapItem(for: pharmacy)
-                guard !Task.isCancelled else { return }
-                details[pharmacy.id] = item.map(PlaceDetails.found) ?? .unmatched
-                detailItem = item
-            } catch {
-                guard !Task.isCancelled else { return }
-                details[pharmacy.id] = .failed
+            await pending?.value
+            guard !Task.isCancelled else { return }
+            if details[pharmacy.id] == .loading {
+                do {
+                    let item = try await maps.mapItem(for: pharmacy)
+                    guard !Task.isCancelled else { return }
+                    details[pharmacy.id] = item.map(PlaceDetails.found) ?? .unmatched
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    details[pharmacy.id] = .failed
+                }
             }
+            if case .found(let item) = details[pharmacy.id] { detailItem = item }
             if let message = details[pharmacy.id]?.message { VoiceOver.announce(message) }
         }
     }
@@ -192,7 +199,7 @@ extension PlaceDetails {
     var message: String? {
         switch self {
         case .loading, .found: nil
-        case .unmatched: "Couldn't confidently match this in Apple Maps."
+        case .unmatched: "Couldn't find this pharmacy in Apple Maps. Try Google Maps."
         case .failed: "Couldn't reach Apple Maps. Try again."
         }
     }

@@ -6,6 +6,8 @@ struct NearestCard: View {
     let isApproximate: Bool
     let focus: AccessibilityFocusState<Bool>.Binding
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
@@ -19,10 +21,6 @@ struct NearestCard: View {
             .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : .isHeader)
             .accessibilityFocused(focus)
 
-            Label("Hours not checked. May have closed down.", systemImage: "info.circle")
-                .font(.footnote)
-                .foregroundStyle(Theme.amber)
-
             PharmacyActions(model: model, pharmacy: pharmacy)
         }
         .pharmacyCard(isSelected: isSelected)
@@ -34,9 +32,9 @@ struct NearestCard: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.tealText)
             Text(pharmacy.name)
-                .font(.title2.bold())
+                .font((dynamicTypeSize.isAccessibilitySize ? Font.title3 : .title2).bold())
                 .foregroundStyle(Theme.ink)
-            Text([Format.distance(pharmacy.distanceMeters), walk.map(Format.walk)].compactMap(\.self).joined(separator: " · "))
+            distances
                 .monospacedDigit()
                 .foregroundStyle(Theme.body)
             if let address = pharmacy.address {
@@ -48,6 +46,17 @@ struct NearestCard: View {
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, minHeight: Theme.minimumTarget, alignment: .leading)
         .contentShape(.rect)
+    }
+
+    private var distances: some View {
+        let parts = ["\(Format.distance(pharmacy.distanceMeters)) straight line", walk.map(Format.walk)].compactMap(\.self)
+
+        return ViewThatFits(in: .horizontal) {
+            Text(parts.joined(separator: " · "))
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(parts, id: \.self) { Text($0) }
+            }
+        }
     }
 
     private var walk: WalkingTime? {
@@ -78,7 +87,7 @@ extension View {
             .background(Theme.sheet)
             .overlay(alignment: .leading) {
                 if isSelected {
-                    Theme.teal.frame(width: 3)
+                    Theme.selection.frame(width: 5)
                 }
             }
             .clipShape(.rect(cornerRadius: Theme.cardRadius))
@@ -92,15 +101,13 @@ struct PharmacyActions: View {
     let model: AppModel
     let pharmacy: Pharmacy
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // Call comes last: it appears late, and must not move Details under a finger.
+            if !dynamicTypeSize.isAccessibilitySize { caveat.padding(.bottom, 4) }
+            // Call appears late, and must not move the other buttons under a finger.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    directions
-                    details
-                    call
-                }
                 VStack(alignment: .leading, spacing: 8) {
                     directions
                     HStack(spacing: 8) {
@@ -120,10 +127,13 @@ struct PharmacyActions: View {
                     .foregroundStyle(Theme.body)
                     .padding(.top, 4)
             }
+            // Above the buttons, this much large text would push them off the screen.
+            if dynamicTypeSize.isAccessibilitySize { caveat.padding(.top, 4) }
             if let url = WebLink.googleMaps(pharmacy) {
                 Link("Google Maps", destination: url)
                     .buttonStyle(.textLink)
                     .font(.subheadline)
+                    .accessibilityLabel("Google Maps for \(pharmacy.name)")
                     .accessibilityHint("Searches for this pharmacy in Google Maps")
             }
         }
@@ -133,13 +143,25 @@ struct PharmacyActions: View {
         model.details[pharmacy.id]
     }
 
+    private var caveat: some View {
+        Label("Hours not checked. May be closed or closed down.", systemImage: "info.circle")
+            .font(.subheadline)
+            .foregroundStyle(Theme.amber)
+    }
+
     private var directions: some View {
         Button {
             model.openDirections(to: pharmacy)
         } label: {
-            Label("Directions", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+            // Beside the icon, the largest text would have to break the word.
+            if dynamicTypeSize.isAccessibilitySize {
+                Text("Directions")
+            } else {
+                Label("Directions", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+            }
         }
         .buttonStyle(.primaryPill)
+        .accessibilityLabel("Directions to \(pharmacy.name)")
         .accessibilityHint("Opens Apple Maps")
     }
 
@@ -148,6 +170,7 @@ struct PharmacyActions: View {
         if let url = place?.phoneURL {
             Link("Call", destination: url)
                 .buttonStyle(.secondaryPill)
+                .accessibilityLabel("Call \(pharmacy.name)")
         }
     }
 
@@ -161,11 +184,12 @@ struct PharmacyActions: View {
                     Text("Loading details")
                 }
             } else {
-                Text("Details")
+                Text("Hours & details")
             }
         }
         .buttonStyle(.secondaryPill)
         .disabled(place == .loading)
+        .accessibilityLabel("\(place == .loading ? "Loading details" : "Hours and details") for \(pharmacy.name)")
         .accessibilityHint("Shows Apple Maps information")
     }
 }

@@ -21,7 +21,8 @@ Central (60.1719, 24.9414).
 3. **The nearest one.** The app looks it up in Apple Maps on its own, to show the walking time and a Call
    button. Apple's place is used only if the category, distance and name agree. Otherwise the app says it
    couldn't match it.
-4. **Details.** Tapping Details opens Apple's place card, with opening hours and phone when Apple has them.
+4. **Hours & details.** This button opens Apple's place card, with opening hours and phone when Apple has
+   them.
 
 ### Why not MapKit's pharmacy search?
 
@@ -47,7 +48,7 @@ OpenStreetMap isn't always better: it lacked London's Dewshi Chemist. And it can
 closed: Apple Maps marks Brahen Apteekki "Permanently Closed", and I could not find out which is right.
 
 MapKit exposes no closure status or opening hours in code, so the app can't check either. The nearest
-card says so, and offers Call, Details and a Google Maps link (a search, no API key).
+card says so, and offers Hours & details, Call and a Google Maps link (a search, no API key).
 
 ## Code
 
@@ -72,7 +73,7 @@ Three small protocols let the Xcode previews run on fakes. In Debug builds the l
 - OpenStreetMap and Apple Maps can be out of date, and OpenStreetMap lists some places that only hand out
   orders as pharmacies.
 - Your rounded position is sent to Photon. Apple gets the places you search for, your position for the
-  walking time, and the name of the nearest pharmacy and of any other you open Details for. The Google
+  walking time, and the name of the nearest pharmacy and of any other you open details for. The Google
   Maps link sends that pharmacy's name and address, or its position, to Google.
 - English only.
 

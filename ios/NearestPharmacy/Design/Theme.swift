@@ -7,7 +7,9 @@ enum Theme {
     static let body = Color(light: 0x33415C, dark: 0xC9D4E5)
     /// Only on `sheet`: on `ground` it falls below AA contrast, so use `body` there.
     static let muted = Color(light: 0x66738D, dark: 0x93A3BC)
-    static let hairline = Color(light: 0xE7EAF0, dark: 0x1C3050)
+    /// With increased contrast, at least 3:1 against `sheet` and `ground` in both modes.
+    static let hairline = Color(light: 0xE7EAF0, dark: 0x1C3050, highContrastLight: 0x66738D, highContrastDark: 0x6F84A6)
+    static let selection = Color(light: 0x0F8F85, dark: 0x0F8F85, highContrastLight: 0x075F59, highContrastDark: 0x2CC3B6)
     static let action = Color(light: 0x12315E, dark: 0x2CC3B6)
     static let onAction = Color(light: 0xFFFFFF, dark: 0x071427)
     /// A fill: at least 3:1 under a white glyph and against `sheet` in both modes.
@@ -31,9 +33,12 @@ enum Theme {
 }
 
 extension Color {
-    init(light: UInt32, dark: UInt32) {
+    init(light: UInt32, dark: UInt32, highContrastLight: UInt32? = nil, highContrastDark: UInt32? = nil) {
         self.init(uiColor: UIColor { traits in
-            UIColor(rgb: traits.userInterfaceStyle == .dark ? dark : light)
+            let isHighContrast = traits.accessibilityContrast == .high
+            return UIColor(rgb: traits.userInterfaceStyle == .dark
+                ? (isHighContrast ? highContrastDark : nil) ?? dark
+                : (isHighContrast ? highContrastLight : nil) ?? light)
         })
     }
 }
@@ -80,12 +85,14 @@ extension ButtonStyle where Self == PillStyle {
 
 /// Looks like a link in text, with a full-size target.
 struct TextLinkStyle: ButtonStyle {
+    var alignment = Alignment.leading
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .underline()
             .foregroundStyle(Theme.action)
             .multilineTextAlignment(.leading)
-            .frame(minWidth: Theme.minimumTarget, minHeight: Theme.minimumTarget, alignment: .leading)
+            .frame(minWidth: Theme.minimumTarget, minHeight: Theme.minimumTarget, alignment: alignment)
             .opacity(configuration.isPressed ? 0.75 : 1)
             .contentShape(.rect)
     }

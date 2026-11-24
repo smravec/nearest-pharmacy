@@ -39,7 +39,7 @@ private struct PharmacyRow: View {
             .accessibilityHint("Shows it on the map")
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityAction(named: "Directions") { model.openDirections(to: pharmacy) }
-            .accessibilityAction(named: "Details") { model.showDetails(for: pharmacy) }
+            .accessibilityAction(named: "Hours and details") { model.showDetails(for: pharmacy) }
 
             if isSelected {
                 PharmacyActions(model: model, pharmacy: pharmacy)
@@ -99,31 +99,38 @@ struct AttributionView: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 0) {
                 openStreetMap
-                Text(", search by ")
+                Text(", ")
                 photon
             }
+            .buttonStyle(.textLink)
+            // The targets reach away from each other, so the two lines of text stay together.
             VStack(alignment: .leading, spacing: 0) {
                 openStreetMap
-                HStack(spacing: 0) {
-                    Text("search by ")
-                    photon
-                }
+                    .buttonStyle(TextLinkStyle(alignment: .bottomLeading))
+                photon
+                    .buttonStyle(TextLinkStyle(alignment: .topLeading))
             }
         }
         .foregroundStyle(Theme.body)
-        .buttonStyle(.textLink)
     }
 
     private var openStreetMap: some View {
-        link("© OpenStreetMap contributors (ODbL)", to: "https://www.openstreetmap.org/copyright")
+        CreditLink(title: "© OpenStreetMap contributors (ODbL)", address: CreditLink.openStreetMap)
     }
 
     private var photon: some View {
-        link("Photon", to: "https://photon.komoot.io")
+        CreditLink(title: "search by Photon", address: CreditLink.photon)
     }
+}
 
-    @ViewBuilder
-    private func link(_ title: String, to address: String) -> some View {
+struct CreditLink: View {
+    static let openStreetMap = "https://www.openstreetmap.org/copyright"
+    static let photon = "https://photon.komoot.io"
+
+    let title: String
+    let address: String
+
+    var body: some View {
         if let url = URL(string: address) {
             Link(title, destination: url)
         }

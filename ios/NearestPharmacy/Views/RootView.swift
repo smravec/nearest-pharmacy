@@ -21,7 +21,11 @@ struct RootView: View {
         .tint(Theme.action)
         .mapItemDetailSheet(item: $model.detailItem, displaysMap: false)
         .sheet(isPresented: $isSearchPresented) {
-            LocationSearchView(useLocation: searchFromLocation, select: search)
+            LocationSearchView(
+                isLocationDenied: model.state == .denied,
+                useLocation: searchFromLocation,
+                select: search
+            )
         }
         .sheet(isPresented: $isAboutPresented) { AboutView() }
     }
@@ -116,7 +120,7 @@ private struct ResultsView: View {
                             .accessibilitySortPriority(1)
                             .frame(
                                 width: isWide ? min(400, size.width * 0.45) : nil,
-                                height: isWide ? nil : size.height * panelShare
+                                height: isWide ? nil : panelHeight(in: size.height)
                             )
                     }
                 }
@@ -126,8 +130,10 @@ private struct ResultsView: View {
         .ignoresSafeArea(.keyboard)
     }
 
-    private var panelShare: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 0.7 : 0.55
+    private func panelHeight(in height: CGFloat) -> CGFloat {
+        if dynamicTypeSize.isAccessibilitySize { return height * 0.85 }
+        // 420 points show the nearest card and the next heading, if that leaves room for the map.
+        return max(height * 0.55, min(420, height * 0.7))
     }
 }
 
@@ -139,12 +145,13 @@ private struct ResultsPanel: View {
 
     @AccessibilityFocusState private var nearestFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    OriginLine(origin: origin, search: search)
+                    if !dynamicTypeSize.isAccessibilitySize { originLine }
                     if let nearest = pharmacies.first {
                         NearestCard(
                             model: model,
@@ -154,6 +161,7 @@ private struct ResultsPanel: View {
                         )
                         .id(nearest.id)
                     }
+                    if dynamicTypeSize.isAccessibilitySize { originLine }
                     PharmacyList(model: model, others: Array(pharmacies.dropFirst()))
                 }
                 .padding(.horizontal)
@@ -175,21 +183,34 @@ private struct ResultsPanel: View {
             nearestFocused = true
         }
     }
+
+    private var originLine: some View {
+        OriginLine(origin: origin, search: search)
+    }
 }
 
 /// OpenStreetMap's license requires the credit to be visible along with the results.
 private struct PinnedAttribution: View {
     var body: some View {
-        AttributionView()
-            .font(.caption)
-            // Larger text would leave little room for the results. About has it at full size.
-            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .background(Theme.sheet)
-            .overlay(alignment: .top) {
-                Theme.hairline.frame(height: 1).ignoresSafeArea(edges: .horizontal)
-            }
+        HStack(spacing: 0) {
+            CreditLink(title: "© OpenStreetMap", address: CreditLink.openStreetMap)
+                .accessibilityLabel("OpenStreetMap contributors, licence information")
+            Text(" · ")
+                .foregroundStyle(Theme.body)
+                .accessibilityHidden(true)
+            CreditLink(title: "Photon", address: CreditLink.photon)
+                .accessibilityLabel("Photon, search service")
+        }
+        .buttonStyle(.textLink)
+        .font(.caption)
+        // Larger text would leave little room for the results. About has it at full size.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .background(Theme.sheet)
+        .overlay(alignment: .top) {
+            Theme.hairline.frame(height: 1).ignoresSafeArea(edges: .horizontal)
+        }
     }
 }
 

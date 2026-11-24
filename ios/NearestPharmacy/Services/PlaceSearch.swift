@@ -9,6 +9,8 @@ final class PlaceSearch: NSObject {
     private static let maximumSuggestions = 8
 
     private(set) var suggestions: [MKLocalSearchCompletion] = []
+    /// Apple has answered, without suggestions.
+    private(set) var hasNoSuggestions = false
 
     @ObservationIgnored private let completer = MKLocalSearchCompleter()
 
@@ -25,6 +27,7 @@ final class PlaceSearch: NSObject {
             // Setting an unchanged fragment does nothing, so retyping the same query would show no list.
             completer.queryFragment = ""
             suggestions = []
+            hasNoSuggestions = false
             return
         }
         completer.queryFragment = trimmed
@@ -71,9 +74,12 @@ extension PlaceSearch: @preconcurrency MKLocalSearchCompleterDelegate {
         // A late callback after the query was cleared.
         guard !completer.queryFragment.isEmpty else { return }
         suggestions = Array(completer.results.prefix(Self.maximumSuggestions))
+        hasNoSuggestions = suggestions.isEmpty
     }
 
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: any Error) {
+        guard !completer.queryFragment.isEmpty else { return }
         suggestions = []
+        hasNoSuggestions = true
     }
 }

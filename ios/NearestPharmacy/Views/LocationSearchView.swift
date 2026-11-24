@@ -8,10 +8,12 @@ struct LocationSearchView: View {
         case failed(String)
     }
 
+    let isLocationDenied: Bool
     let useLocation: () -> Void
     let select: (Origin) -> Void
 
     @State private var query = ""
+    @State private var isSearchActive = true
     @State private var places = PlaceSearch()
     @State private var lookup = Lookup.idle
     @State private var lookupTask: Task<Void, Never>?
@@ -20,7 +22,7 @@ struct LocationSearchView: View {
     var body: some View {
         NavigationStack {
             List {
-                currentLocation
+                if query.isEmpty { currentLocation }
                 status
                 suggestions
             }
@@ -28,9 +30,12 @@ struct LocationSearchView: View {
             .background(Theme.ground)
             .searchable(
                 text: $query,
+                isPresented: $isSearchActive,
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Address or place"
             )
+            // Keeps Close within reach.
+            .searchPresentationToolbarBehavior(.avoidHidingContent)
             .autocorrectionDisabled()
             .onChange(of: query) {
                 lookupTask?.cancel()
@@ -52,16 +57,16 @@ struct LocationSearchView: View {
 
     private var currentLocation: some View {
         Section {
-            Button(action: useLocation) {
-                Label("Use my location", systemImage: "location.fill")
-                    .searchRow()
+            if !isLocationDenied {
+                Button(action: useLocation) {
+                    Label("Use my location", systemImage: "location.fill")
+                        .searchRow()
+                }
+                .listRowBackground(Theme.sheet)
             }
-            .listRowBackground(Theme.sheet)
         } footer: {
-            if query.isEmpty {
-                Text("Suggestions come from Apple Maps.")
-                    .foregroundStyle(Theme.body)
-            }
+            Text("Suggestions come from Apple Maps.")
+                .foregroundStyle(Theme.body)
         }
     }
 
@@ -99,6 +104,11 @@ struct LocationSearchView: View {
                 }
                 .listRowBackground(Theme.sheet)
             }
+        } footer: {
+            if places.hasNoSuggestions, lookup == .idle {
+                Text("No suggestions. Tap Search to look it up.")
+                    .foregroundStyle(Theme.body)
+            }
         }
         .disabled(lookup == .running)
     }
@@ -120,7 +130,7 @@ struct LocationSearchView: View {
                 if let place {
                     select(place)
                 } else {
-                    fail("No place matches that search.")
+                    fail("No place found. Check the spelling or add a city.")
                 }
             } catch {
                 guard !Task.isCancelled else { return }

@@ -92,7 +92,7 @@ enum SearchState: Equatable, Sendable {
     case denied
     case loading(Origin)
     case ready(Origin, [Pharmacy])
-    case empty(radiusKilometers: Int)
+    case empty(Origin, radiusKilometers: Int)
     /// The origin is nil when finding it is what failed.
     case failed(SearchFailure, Origin?)
 }

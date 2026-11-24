@@ -21,6 +21,8 @@ struct PharmacyMap: View {
         map
             .ignoresSafeArea(edges: .horizontal)
             .overlay(alignment: .topTrailing) { controls }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Map of nearby pharmacies")
             .mapScope(scope)
             .onChange(of: model.selectedID) { showSelected() }
             .onChange(of: model.listSelectionCount) { showSelected() }
@@ -47,9 +49,6 @@ struct PharmacyMap: View {
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .mapControls { MapScaleView() }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Map of nearby pharmacies")
-        .accessibilityHint("The same pharmacies are in the list.")
     }
 
     /// The compass is placed here because its default spot is under the recenter button.
