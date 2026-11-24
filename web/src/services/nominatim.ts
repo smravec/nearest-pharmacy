@@ -6,7 +6,7 @@ import type { OsmTags } from './osm'
 const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org'
 const MIN_INTERVAL_MS = 1_100
 const SEARCH_TIMEOUT_MS = 8_000
-const LOOKUP_TIMEOUT_MS = 4_000
+const LOOKUP_TIMEOUT_MS = 2_500
 
 const originsByQuery = new Map<string, Origin | null>()
 const tagsById = new Map<string, OsmTags>()
