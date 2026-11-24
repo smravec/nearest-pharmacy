@@ -2,7 +2,8 @@ import type { LatLng, Origin, Pharmacy } from './types'
 
 export function formatDistance(distanceM: number): string {
   const rounded = Math.round(distanceM / 10) * 10
-  return rounded < 1000 ? `${Math.max(rounded, 10)} m` : `${(distanceM / 1000).toFixed(1)} km`
+  // With no-break spaces.
+  return rounded < 1000 ? `${Math.max(rounded, 10)}\u00A0m` : `${(distanceM / 1000).toFixed(1)}\u00A0km`
 }
 
 /** Search radii are whole kilometers. */

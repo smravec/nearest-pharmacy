@@ -13,20 +13,10 @@ const tagsById = new Map<string, OsmTags>()
 let nextSlot = 0
 
 async function waitForSlot(signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted()
   const now = performance.now()
   const slot = Math.max(now, nextSlot)
   nextSlot = slot + MIN_INTERVAL_MS
-  // A wait that is aborted gives its slot back, at once, so that the request replacing it gets it.
-  const giveBack = () => {
-    if (nextSlot === slot + MIN_INTERVAL_MS) nextSlot = slot
-  }
-  signal.addEventListener('abort', giveBack)
-  try {
-    await sleep(slot - now, signal)
-  } finally {
-    signal.removeEventListener('abort', giveBack)
-  }
+  await sleep(slot - now, signal)
 }
 
 function parseCoordinate(value: unknown, limit: 90 | 180): number {

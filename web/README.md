@@ -40,10 +40,9 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
 
 ## Decisions
 
-- **Search on submit only.** Nominatim's usage policy forbids autocomplete. Submitting
-  the same address twice asks once. Requests are limited to
-  one per second in each tab and cached for the session. The policy counts all users together, so a
-  real product would need its own Nominatim.
+- **Search on submit only.** Nominatim's usage policy forbids autocomplete. Submitting the same
+  address twice asks once. Requests are limited to one per second in each tab and cached for the
+  session. The policy counts all users together, so a real product would need its own Nominatim.
 - **Unknown is not closed.** Missing hours show "Hours unavailable". Hours that can't be evaluated are
   shown as listed, with PH and SH spelled out. Those are unparseable hours, public or school holiday
   rules (they depend on the country) and sunrise or sunset. Other hours ignore holidays, and the page says so.
