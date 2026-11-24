@@ -14,9 +14,9 @@ export function OpenBadge({ open }: { open: OpenStatus | undefined }) {
   return (
     <span className={`np-open np-open--${open.status}`}>
       <span className="np-open__dot" aria-hidden="true" />
-      <span>
+      <span className="np-open__text">
         <span className="np-open__label">{open.label}</span>
-        {open.detail && ` ${open.detail}`}
+        {open.detail && `${open.status === 'unknown' ? ': ' : ' · '}${open.detail}`}
       </span>
     </span>
   )
@@ -26,6 +26,7 @@ export function PharmacyFacts({ pharmacy }: { pharmacy: Pharmacy }) {
   return (
     <>
       {pharmacy.address && <p className="np-address">{pharmacy.address}</p>}
+      {pharmacy.phone && <p className="np-meta">{pharmacy.phone}</p>}
       {pharmacy.wheelchair && <p className="np-meta">{WHEELCHAIR_TEXT[pharmacy.wheelchair]}</p>}
     </>
   )
@@ -53,11 +54,7 @@ export function PharmacyLinks({ origin, pharmacy, primary = false }: PharmacyLin
       </a>
       {tel && (
         <a className="np-btn np-btn--secondary" href={tel}>
-          Call
-          <span className="np-sr">
-            {' '}
-            {name}, {phone}
-          </span>
+          Call<span className="np-sr"> {name}</span>
         </a>
       )}
       {website && (
@@ -73,10 +70,20 @@ interface NearestCardProps {
   origin: Origin
   pharmacy: Pharmacy
   open: OpenStatus | undefined
+  /** Set when the nearest is closed and another one is open. */
+  nearestOpen: Pharmacy | undefined
   headingRef: Ref<HTMLHeadingElement>
+  onShow(id: string): void
 }
 
-export function NearestCard({ origin, pharmacy, open, headingRef }: NearestCardProps) {
+export function NearestCard({
+  origin,
+  pharmacy,
+  open,
+  nearestOpen,
+  headingRef,
+  onShow,
+}: NearestCardProps) {
   return (
     <article className="np-nearest" aria-labelledby="np-nearest-name">
       <p className="np-nearest__eyebrow">Nearest to {origin.source === 'gps' ? 'you' : origin.label}</p>
@@ -87,12 +94,17 @@ export function NearestCard({ origin, pharmacy, open, headingRef }: NearestCardP
         <span className="np-figure__distance">{formatDistance(pharmacy.distanceM)}</span>
         <span className="np-figure__notes">
           <span>straight line</span>
-          <span>about {formatWalk(pharmacy.walkMinutes)}</span>
+          {pharmacy.walkMinutes && <span>about {formatWalk(pharmacy.walkMinutes)}</span>}
         </span>
       </p>
       <p>
         <OpenBadge open={open} />
       </p>
+      {nearestOpen && (
+        <button type="button" className="np-nearest__open" onClick={() => onShow(nearestOpen.id)}>
+          Nearest open: {nearestOpen.name}, {formatDistance(nearestOpen.distanceM)}
+        </button>
+      )}
       <PharmacyFacts pharmacy={pharmacy} />
       <PharmacyLinks origin={origin} pharmacy={pharmacy} primary />
     </article>

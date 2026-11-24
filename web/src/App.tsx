@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { Attribution } from './components/Attribution'
@@ -8,7 +8,6 @@ import { announcement, LiveRegion } from './components/LiveRegion'
 import { LocationSearch } from './components/LocationSearch'
 import { MapBoundary } from './components/MapBoundary'
 import { NearestCard } from './components/NearestCard'
-import type { PharmacyMapHandle } from './components/pharmacyMap.types'
 import { PharmacyList } from './components/PharmacyList'
 import {
   DeniedView,
@@ -18,8 +17,7 @@ import {
   LocatingView,
   Primer,
 } from './components/StatusViews'
-import type { Origin, PharmacyResult } from './domain/types'
-import { useKeyboard } from './hooks/useKeyboard'
+import type { Origin, Pharmacy, PharmacyResult } from './domain/types'
 import { useOpenStates } from './hooks/useOpenStates'
 import { usePharmacySearch } from './hooks/usePharmacySearch'
 
@@ -31,24 +29,37 @@ const PharmacyMap = lazy(() => import('./components/PharmacyMap'))
 interface ResultsProps {
   origin: Origin
   result: PharmacyResult
-  selectedId: string | null
   headingRef: RefObject<HTMLHeadingElement | null>
-  rowRefs: RefObject<Map<string, HTMLButtonElement>>
-  onSelect(id: string | null): void
+  onRetry(): void
 }
 
-function Results({ origin, result, selectedId, headingRef, rowRefs, onSelect }: ResultsProps) {
+function Results({ origin, result, headingRef, onRetry }: ResultsProps) {
   const { pharmacies } = result
   const openStates = useOpenStates(pharmacies)
-  const mapRef = useRef<PharmacyMapHandle>(null)
+  const rowsRef = useRef<HTMLOListElement>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const nearest = pharmacies[0]
 
+  const statusOf = (pharmacy?: Pharmacy) => pharmacy && openStates.get(pharmacy.id)?.status
+  const nearestOpen =
+    statusOf(nearest) === 'closed' ? pharmacies.find((p) => statusOf(p) === 'open') : undefined
+
+  /** Returns the selected row. Rendered first, so that a scroll includes the panel it gains. */
+  function select(id: string) {
+    flushSync(() => setSelectedId(id))
+    return rowsRef.current?.querySelector<HTMLElement>('[aria-expanded="true"]')
+  }
+
   function handlePin(id: string) {
-    // Rendered first, so that the scroll includes the links the selected item gains.
-    flushSync(() => onSelect(id))
+    const row = select(id)
     // In one column, scrolling to the list would move the map out of view.
-    if (!window.matchMedia(TWO_COLUMNS).matches) return
-    rowRefs.current.get(id)?.closest('li')?.scrollIntoView({ block: 'nearest' })
+    if (window.matchMedia(TWO_COLUMNS).matches) row?.closest('li')?.scrollIntoView({ block: 'nearest' })
+  }
+
+  function handleShow(id: string) {
+    const row = select(id)
+    row?.focus()
+    row?.closest('li')?.scrollIntoView({ block: 'nearest' })
   }
 
   return (
@@ -58,7 +69,9 @@ function Results({ origin, result, selectedId, headingRef, rowRefs, onSelect }: 
           origin={origin}
           pharmacy={nearest}
           open={openStates.get(nearest.id)}
+          nearestOpen={nearestOpen}
           headingRef={headingRef}
+          onShow={handleShow}
         />
       )}
       <section className="np-map">
@@ -69,7 +82,6 @@ function Results({ origin, result, selectedId, headingRef, rowRefs, onSelect }: 
         >
           <Suspense fallback={<p className="np-map__message np-map__message--loading">Loading map…</p>}>
             <PharmacyMap
-              ref={mapRef}
               origin={origin}
               pharmacies={pharmacies}
               nearestId={nearest?.id ?? null}
@@ -84,9 +96,9 @@ function Results({ origin, result, selectedId, headingRef, rowRefs, onSelect }: 
         result={result}
         selectedId={selectedId}
         openStates={openStates}
-        rowRefs={rowRefs}
-        onSelect={onSelect}
-        onEnterMap={() => mapRef.current?.focus()}
+        rowsRef={rowsRef}
+        onSelect={setSelectedId}
+        onRetry={onRetry}
       />
     </div>
   )
@@ -94,18 +106,9 @@ function Results({ origin, result, selectedId, headingRef, rowRefs, onSelect }: 
 
 export function App() {
   const { state, geocode, locate, search, retry } = usePharmacySearch()
-  const inputRef = useRef<HTMLInputElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
   const pendingFocus = useRef<{ from: Element | null } | null>(null)
-
-  const [choice, setChoice] = useState<{ result: PharmacyResult; id: string | null } | null>(null)
   const [slowOrigin, setSlowOrigin] = useState<Origin | null>(null)
-
-  const result = state.status === 'ready' ? state.result : null
-  const firstId = result?.pharmacies[0]?.id ?? null
-  // Tied to the result, so a new one starts on its nearest pharmacy again.
-  const selectedId = choice && choice.result === result ? choice.id : firstId
   const slow = state.status === 'loading' && slowOrigin === state.origin
 
   // Declared first: a failed address search has to drop the pending move before the next effect runs.
@@ -152,34 +155,11 @@ export function App() {
     retry()
   }
 
-  const handleSelect = useCallback(
-    (id: string | null) => {
-      if (result) setChoice({ result, id })
-    },
-    [result],
-  )
-
-  const handleSlash = useCallback(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [])
-
-  const handleEscape = useCallback(() => {
-    const returnId = selectedId ?? firstId
-    if (returnId && document.activeElement?.closest('.np-map')) rowRefs.current.get(returnId)?.focus()
-    handleSelect(null)
-  }, [selectedId, firstId, handleSelect])
-
-  useKeyboard({ onSlash: handleSlash, onEscape: handleEscape })
-
   return (
     <>
-      <a href="#main" className="np-skip">
-        Skip to content
-      </a>
       <div className="np-shell">
         <Header />
-        <main id="main" className="np-main" tabIndex={-1}>
+        <main className="np-main">
           <Hero state={state}>
             <LocationSearch
               geocode={geocode}
@@ -187,7 +167,6 @@ export function App() {
               onEdit={handleEdit}
               onSearch={handleSearch}
               onLocate={handleLocate}
-              inputRef={inputRef}
             />
           </Hero>
           {state.status === 'idle' && <Primer />}
@@ -206,10 +185,8 @@ export function App() {
             <Results
               origin={state.origin}
               result={state.result}
-              selectedId={selectedId}
               headingRef={headingRef}
-              rowRefs={rowRefs}
-              onSelect={handleSelect}
+              onRetry={handleRetry}
             />
           )}
         </main>

@@ -29,13 +29,13 @@ export function telHref(phone?: string): string | undefined {
 
 const latLngParam = ({ lat, lng }: LatLng) => `${lat},${lng}`
 
-/** Google Maps walking directions. A GPS origin is left out so that Maps uses the live position. */
+/** Google Maps directions. A GPS origin is left out so that Maps uses the live position. */
 export function directionsUrl(origin: Origin, pharmacy: Pharmacy): string {
   const params = new URLSearchParams({
     api: '1',
     destination: latLngParam(pharmacy.position),
-    travelmode: 'walking',
   })
+  if (pharmacy.walkMinutes) params.set('travelmode', 'walking')
   if (origin.source === 'search') params.set('origin', latLngParam(origin.position))
   return `https://www.google.com/maps/dir/?${params}`
 }

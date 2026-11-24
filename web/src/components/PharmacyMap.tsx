@@ -1,9 +1,17 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { useEffect, useEffectEvent, useId, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react'
+import type { Origin, Pharmacy } from '../domain/types'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { MapController } from './map/MapController'
 import './PharmacyMap.css'
-import type { PharmacyMapProps } from './pharmacyMap.types'
+
+interface PharmacyMapProps {
+  origin: Origin
+  pharmacies: Pharmacy[]
+  nearestId: string | null
+  selectedId: string | null
+  onSelect(id: string): void
+}
 
 export default function PharmacyMap({
   origin,
@@ -11,7 +19,6 @@ export default function PharmacyMap({
   nearestId,
   selectedId,
   onSelect,
-  ref,
 }: PharmacyMapProps) {
   const dark = useMediaQuery('(prefers-color-scheme: dark)')
   const descriptionId = useId()
@@ -73,17 +80,6 @@ export default function PharmacyMap({
     keepFocus.current = true
     setFailed(false)
   }
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus() {
-        if (controllerRef.current) controllerRef.current.focus()
-        else rootRef.current?.focus()
-      },
-    }),
-    [],
-  )
 
   if (failed) {
     return (

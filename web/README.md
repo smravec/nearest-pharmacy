@@ -22,10 +22,10 @@ search works anywhere.
 2. **Pharmacies:** OpenStreetMap through [Overpass](https://overpass-api.de), within 2, 5, 20, then
    50 km, stopping at the first radius with three results.
 3. **Fallback:** Overpass is a free shared service that often refuses or stalls. An attempt gets at most
-   4 seconds and isn't retried. Then [Photon](https://photon.komoot.io) finds the nearest 20, and
-   Nominatim looks up their opening hours, phone numbers and websites. If that fails, the page says so.
-4. **Order:** straight-line (haversine) distance. Walking time assumes 5 km/h and is labeled as an
-   estimate, because there is no routing service.
+   4 seconds and isn't retried. Then [Photon](https://photon.komoot.io) answers instead, and
+   Nominatim looks up the opening hours, phone numbers and websites. If that fails, the page says so.
+4. **Order:** straight-line (haversine) distance. Walking time, shown up to 5 km, assumes 5 km/h
+   and is labeled as an estimate, because there is no routing service.
 
 | Data | Service |
 |---|---|
@@ -43,7 +43,7 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
   one per second and cached for the session.
 - **Unknown is not closed.** Missing hours show "Hours unavailable". Hours that can't be evaluated are
   shown as listed: unparseable ones, public or school holiday rules (they depend on the country) and
-  sunrise or sunset. Other hours ignore holidays, and the page says so.
+  sunrise or sunset. Other hours ignore holidays, so the page says to call ahead.
 - **The pharmacy's time zone.** Hours are evaluated where the pharmacy is, so searching another
   city gives the right answer.
 - **OpenStreetMap data is untrusted.** It is rendered as text only, and links must be http(s).
@@ -57,22 +57,20 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
   moved on while waiting keeps their place.
 - The list is the full text equivalent of the map. Status is never shown by color alone.
 - Light and dark follow the system, and reduced motion is respected.
-- Keyboard: `/` search, `↑` `↓` `Home` `End` move in the list, `Enter` shows the pharmacy on the map,
-  `Esc` clears the selection and leaves the map.
+- Everything works with native buttons, links and one form, so there are no custom keys to learn.
 
 ## Limits
 
 - The public services have no uptime guarantee.
 - OpenStreetMap entries can be missing or out of date.
-- On the day daylight saving starts in the browser's time zone, clock times within the skipped hour
-  count as an hour later when opening hours are evaluated.
+- The search reaches 50 km and lists at most the nearest 20.
 
 ## Layout
 
 ```
 src/domain/      types, distance, formatting, opening hours
 src/services/    Overpass, Photon, Nominatim, geolocation
-src/hooks/       search state, open states, keyboard
+src/hooks/       search state, open states, media queries
 src/components/  interface; map/ owns MapLibre
 src/styles/      tokens and styles
 ```

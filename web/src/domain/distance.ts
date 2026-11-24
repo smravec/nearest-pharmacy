@@ -2,6 +2,8 @@ import type { LatLng } from './types'
 
 const EARTH_RADIUS_M = 6_371_008.8
 const WALKING_M_PER_MIN = 5000 / 60
+/** Further than this, nobody walks to a pharmacy. */
+const MAX_WALK_M = 5000
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180
 
@@ -14,6 +16,7 @@ export function haversineM(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
-export function walkMinutes(distanceM: number): number {
+export function walkMinutes(distanceM: number): number | undefined {
+  if (distanceM > MAX_WALK_M) return undefined
   return Math.max(1, Math.round(distanceM / WALKING_M_PER_MIN))
 }

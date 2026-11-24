@@ -1,6 +1,5 @@
-import { useState } from 'react'
-import type { ChangeEvent, RefObject, SubmitEvent } from 'react'
-import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useRef, useState } from 'react'
+import type { ChangeEvent, SubmitEvent } from 'react'
 import type { GeocodeState } from '../hooks/usePharmacySearch'
 
 interface LocationSearchProps {
@@ -9,7 +8,6 @@ interface LocationSearchProps {
   onEdit(): void
   onSearch(query: string): void
   onLocate(): void
-  inputRef: RefObject<HTMLInputElement | null>
 }
 
 export function geocodeErrorText(geocode: GeocodeState): string | null {
@@ -29,10 +27,9 @@ export function LocationSearch({
   onEdit,
   onSearch,
   onLocate,
-  inputRef,
 }: LocationSearchProps) {
   const [query, setQuery] = useState('')
-  const hasKeyboard = useMediaQuery('(hover: hover) and (pointer: fine)')
+  const inputRef = useRef<HTMLInputElement>(null)
   const searching = geocode.status === 'searching'
   const error = geocodeErrorText(geocode)
 
@@ -67,28 +64,20 @@ export function LocationSearch({
         <label className="np-search__label" htmlFor="np-q">
           Address or place
         </label>
-        <span className="np-search__field">
-          {/* type="search" would let Esc clear the text natively. */}
-          <input
-            ref={inputRef}
-            id="np-q"
-            className="np-input"
-            type="text"
-            inputMode="search"
-            enterKeyHint="search"
-            autoComplete="off"
-            placeholder="For example Kallio, Helsinki"
-            value={query}
-            onChange={handleChange}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? 'np-q-error' : undefined}
-          />
-          {hasKeyboard && (
-            <kbd className="np-kbd" aria-hidden="true">
-              /
-            </kbd>
-          )}
-        </span>
+        <input
+          ref={inputRef}
+          id="np-q"
+          className="np-input"
+          type="text"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          placeholder="For example Kallio, Helsinki"
+          value={query}
+          onChange={handleChange}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'np-q-error' : undefined}
+        />
         <button type="submit" className="np-btn np-btn--secondary" aria-disabled={searching || undefined}>
           {searching ? 'Searching…' : 'Search'}
         </button>

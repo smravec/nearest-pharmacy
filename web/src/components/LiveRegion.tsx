@@ -17,11 +17,11 @@ function readyMessage({ pharmacies, radiusM, truncated }: PharmacyResult): strin
   const [nearest] = pharmacies
   if (!nearest) return ''
   const distance = formatDistance(nearest.distanceM)
-  const walk = formatWalk(nearest.walkMinutes)
+  const walk = nearest.walkMinutes ? `, about ${formatWalk(nearest.walkMinutes)}` : ''
   const count = truncated
     ? `Showing the nearest ${pharmacies.length}.`
     : `${pharmacies.length} found within ${formatRadius(radiusM)}.`
-  return `Nearest pharmacy: ${nearest.name}, ${distance} away, about ${walk}. ${count}`
+  return `Nearest pharmacy: ${nearest.name}, ${distance} away${walk}. ${count}`
 }
 
 function stateMessage(state: SearchState, slow: boolean): string {

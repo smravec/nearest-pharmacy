@@ -5,8 +5,6 @@
 }
 
 html {
-  /* Clears the sticky header. */
-  scroll-padding-top: 76px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -67,10 +65,6 @@ svg {
   outline-offset: 2px;
 }
 
-#main:focus {
-  outline: none;
-}
-
 .np-sr {
   position: absolute;
   width: 1px;
@@ -80,22 +74,6 @@ svg {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.np-skip {
-  position: fixed;
-  top: 12px;
-  left: 16px;
-  z-index: 20;
-  padding: 10px 18px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-pill);
-  background: var(--sheet);
-  color: var(--ink);
-}
-
-.np-skip:not(:focus) {
-  transform: translateY(-80px);
 }
 
 @media (prefers-reduced-motion: reduce) {

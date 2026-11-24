@@ -54,12 +54,12 @@
 
   .np-map {
     position: sticky;
-    top: 76px;
+    top: 12px;
     grid-area: map;
     align-self: start;
     /* Fits below the compact hero, so the whole map and its attribution show before scrolling. */
     height: calc(100dvh - 237px);
-    /* Never taller than the space below the sticky header. */
-    min-height: min(480px, calc(100dvh - 88px));
+    /* Never taller than the window, so it fits once scrolled to. */
+    min-height: min(480px, calc(100dvh - 24px));
   }
 }

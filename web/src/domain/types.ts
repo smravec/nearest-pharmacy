@@ -19,7 +19,8 @@ export interface Pharmacy {
   position: LatLng
   /** Straight-line distance from the origin, in meters. */
   distanceM: number
-  walkMinutes: number
+  /** Only within walking distance. */
+  walkMinutes?: number
   address?: string
   phone?: string
   /** Always http(s). */
@@ -39,7 +40,7 @@ export interface PharmacyResult {
   pharmacies: Pharmacy[]
   /** The radius that produced the result, in meters. */
   radiusM: number
-  /** More pharmacies may lie within the radius. */
+  /** Only the nearest are listed: there are more within the radius. */
   truncated?: boolean
   /** Opening hours, phone numbers, websites and wheelchair access couldn't be loaded. */
   detailsMissing?: boolean
