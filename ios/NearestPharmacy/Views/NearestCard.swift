@@ -14,6 +14,7 @@ struct NearestCard: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(spokenSummary)
+            .accessibilityHint("Shows it on the map")
             .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : .isHeader)
             .accessibilityFocused(focus)
 

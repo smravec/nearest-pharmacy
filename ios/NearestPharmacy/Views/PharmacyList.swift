@@ -39,6 +39,7 @@ private struct PharmacyRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(spokenSummary)
+            .accessibilityHint("Shows it on the map")
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityAction(named: "Directions") { model.openDirections(to: pharmacy) }
             .accessibilityAction(named: "Details") { model.showDetails(for: pharmacy) }

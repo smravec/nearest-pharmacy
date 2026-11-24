@@ -98,7 +98,7 @@ enum NameMatch {
     ].map(folded))
 
     private static let connectors: Set<String> = [
-        "de", "la", "le", "am", "der", "die", "das", "the", "of", "and", "at", "i", "y", "et",
+        "de", "la", "le", "am", "der", "die", "das", "the", "of", "and", "at", "y", "et",
     ]
 
     private static func words(in name: String) -> Set<String> {

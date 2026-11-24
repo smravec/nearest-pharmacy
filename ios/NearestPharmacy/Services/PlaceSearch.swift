@@ -93,9 +93,14 @@ extension SearchFailure {
     init(mapKitError error: any Error) {
         if let failure = error as? SearchFailure {
             self = failure
-        } else if Self.isOffline(error) {
-            // Checked first, so "not found" is only ever the service's own answer.
-            self = .offline
+        } else if let networkCode = Self.networkErrorCode(in: error) {
+            // Checked first, so a network error is never reported as "not found".
+            let isOffline = [
+                NSURLErrorNotConnectedToInternet,
+                NSURLErrorDataNotAllowed,
+                NSURLErrorInternationalRoamingOff,
+            ].contains(networkCode)
+            self = isOffline ? .offline : .serviceUnavailable
         } else if (error as? MKError)?.code == .placemarkNotFound {
             self = .placeNotFound
         } else {
@@ -103,22 +108,15 @@ extension SearchFailure {
         }
     }
 
-    /// MapKit wraps network errors, so the cause is somewhere in the underlying chain.
-    private static func isOffline(_ error: any Error) -> Bool {
-        let offlineCodes = [
-            NSURLErrorNotConnectedToInternet,
-            NSURLErrorDataNotAllowed,
-            NSURLErrorInternationalRoamingOff,
-        ]
+    /// The cause may be wrapped, so this looks through the underlying errors.
+    private static func networkErrorCode(in error: any Error) -> Int? {
         var current: NSError? = error as NSError
         for _ in 0..<5 {
-            guard let candidate = current else { return false }
-            if candidate.domain == NSURLErrorDomain {
-                return offlineCodes.contains(candidate.code)
-            }
+            guard let candidate = current else { return nil }
+            if candidate.domain == NSURLErrorDomain { return candidate.code }
             current = candidate.userInfo[NSUnderlyingErrorKey] as? NSError
         }
-        return false
+        return nil
     }
 }
 
