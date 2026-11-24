@@ -10,7 +10,7 @@ struct AboutView: View {
                     Text("This app is an independent demo. It isn't an official pharmacy or healthcare service.")
                 }
                 section("Data") {
-                    Text("Pharmacies come from OpenStreetMap, searched with Photon. They can be out of date. Place details come from Apple Maps. Check with the pharmacy before you travel.")
+                    Text("Pharmacies come from OpenStreetMap, searched with Photon. They can be out of date. Place details come from Apple Maps, and Google Maps opens a search. Check with the pharmacy before you travel.")
                     AttributionView()
                         .font(.footnote)
                 }
@@ -18,7 +18,7 @@ struct AboutView: View {
                     Text("Distances are straight lines. Walking times assume 5 km/h.")
                 }
                 section("Privacy") {
-                    Text("Your position, or the place you search for, is sent to Photon and Apple to find results. The app has no accounts or analytics.")
+                    Text("Your position, or the place you search for, is sent to Photon and Apple to find results. Tapping Google Maps sends that pharmacy's name and address, or its position, to Google. The app has no accounts or analytics.")
                 }
             }
             .foregroundStyle(Theme.ink)

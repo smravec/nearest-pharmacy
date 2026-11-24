@@ -19,6 +19,10 @@ struct NearestCard: View {
             .accessibilityFocused(focus)
 
             PharmacyActions(model: model, pharmacy: pharmacy)
+
+            Label("OpenStreetMap may list closed pharmacies. Check before you go.", systemImage: "info.circle")
+                .font(.subheadline)
+                .foregroundStyle(Theme.amber)
         }
         .pharmacyCard(isSelected: isSelected)
     }
@@ -132,6 +136,12 @@ struct PharmacyActions: View {
         .buttonStyle(SecondaryPillStyle())
         .disabled(isLoadingDetails)
         .accessibilityHint("Shows Apple Maps information")
+
+        if let url = pharmacy.googleMapsURL {
+            Link("Google Maps", destination: url)
+                .buttonStyle(SecondaryPillStyle())
+                .accessibilityHint("Searches for this pharmacy in Google Maps")
+        }
     }
 
     private var isLoadingDetails: Bool {
