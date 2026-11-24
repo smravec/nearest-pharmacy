@@ -1,4 +1,4 @@
-import type { LatLng, Origin, Pharmacy, PharmacyResult } from '../domain/types'
+import type { LatLng, Origin, PharmacyResult } from '../domain/types'
 import { ServiceError } from './http'
 import { lookupTags } from './nominatim'
 import { parseDetails } from './osm'
@@ -10,7 +10,7 @@ const RADII_M = [2_000, 5_000, 20_000, MAX_RADIUS_M]
 /** Wide enough for this many, so that one closed pharmacy isn't the whole list. */
 const MIN_RESULTS = 3
 /** Nominatim's policy allows looking up the results shown, not downloading an area's pharmacies. */
-const MAX_PHOTON_RESULTS = 20
+const MAX_RESULTS = 20
 
 const OVERPASS_BUDGET_MS = 12_000
 const OVERPASS_ATTEMPT_MS = 4_000
@@ -40,21 +40,19 @@ async function searchOverpass(
   return found
 }
 
-async function addDetails(pharmacies: Pharmacy[], signal: AbortSignal): Promise<Pharmacy[]> {
-  const tags = await lookupTags(pharmacies.map((p) => p.id), signal)
-  return pharmacies.map((p) => ({ ...p, ...parseDetails(tags.get(p.id) ?? {}) }))
-}
-
 async function searchPhoton(origin: LatLng, signal: AbortSignal): Promise<PharmacyResult> {
   const found = await queryPhoton(origin, MAX_RADIUS_M, signal)
   // The smallest step with enough results, so that both sources show comparable lists.
   const enoughM = found[MIN_RESULTS - 1]?.distanceM ?? Infinity
   const radiusM = RADII_M.find((radius) => radius >= enoughM) ?? MAX_RADIUS_M
-  const within = found.filter((p) => p.distanceM <= radiusM)
-  const pharmacies = within.slice(0, MAX_PHOTON_RESULTS)
-  const result = { pharmacies, radiusM, truncated: within.length > pharmacies.length }
+  return { pharmacies: found.filter((p) => p.distanceM <= radiusM), radiusM }
+}
+
+async function addDetails(result: PharmacyResult, signal: AbortSignal): Promise<PharmacyResult> {
   try {
-    return { ...result, pharmacies: await addDetails(pharmacies, signal) }
+    const tags = await lookupTags(result.pharmacies.map((p) => p.id), signal)
+    const pharmacies = result.pharmacies.map((p) => ({ ...p, ...parseDetails(tags.get(p.id) ?? {}) }))
+    return { ...result, pharmacies }
   } catch {
     signal.throwIfAborted()
     return { ...result, detailsMissing: true }
@@ -65,5 +63,12 @@ export async function findPharmacies(
   { position }: Origin,
   signal: AbortSignal,
 ): Promise<PharmacyResult> {
-  return (await searchOverpass(position, signal)) ?? searchPhoton(position, signal)
+  const overpass = await searchOverpass(position, signal)
+  const { pharmacies, radiusM } = overpass ?? (await searchPhoton(position, signal))
+  const result = {
+    pharmacies: pharmacies.slice(0, MAX_RESULTS),
+    radiusM,
+    truncated: pharmacies.length > MAX_RESULTS,
+  }
+  return overpass ? result : addDetails(result, signal)
 }
