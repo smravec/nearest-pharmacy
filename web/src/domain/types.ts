@@ -48,11 +48,16 @@ export interface PharmacyResult {
 
 export type LocationProblem = 'denied' | 'unavailable' | 'timeout' | 'unsupported'
 
+/** Finding the place to search around. */
+export type LookupState =
+  | { status: 'idle' | 'locating' | 'searching' }
+  | { status: 'locationFailed'; problem: LocationProblem }
+  | { status: 'addressFailed'; problem: 'notFound' | 'noAnswer'; query: string }
+
+/** Finding the pharmacies around it. */
 export type SearchState =
   | { status: 'idle' }
-  | { status: 'locating' }
-  | { status: 'denied'; problem: LocationProblem }
   | { status: 'loading'; origin: Origin }
   | { status: 'ready'; origin: Origin; result: PharmacyResult }
   | { status: 'empty'; origin: Origin; radiusM: number }
-  | { status: 'error'; origin: Origin; message: string }
+  | { status: 'error'; origin: Origin }

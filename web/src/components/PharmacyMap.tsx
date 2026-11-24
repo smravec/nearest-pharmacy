@@ -5,10 +5,11 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { MapController } from './map/MapController'
 import './PharmacyMap.css'
 
+/** A new origin or list builds a new map. Within one, only the selection and the color scheme change. */
 interface PharmacyMapProps {
   origin: Origin
+  /** Nearest first. */
   pharmacies: Pharmacy[]
-  nearestId: string | null
   selectedId: string | null
   onSelect(id: string): void
 }
@@ -16,7 +17,6 @@ interface PharmacyMapProps {
 export default function PharmacyMap({
   origin,
   pharmacies,
-  nearestId,
   selectedId,
   onSelect,
 }: PharmacyMapProps) {
@@ -33,7 +33,9 @@ export default function PharmacyMap({
   const createController = useEffectEvent((container: HTMLElement, onFail: () => void) => {
     return new MapController({
       container,
-      view: { origin, pharmacies, nearestId, selectedId },
+      origin,
+      pharmacies,
+      selectedId,
       dark,
       descriptionId,
       onSelect: (id) => selectPin(id),
@@ -66,11 +68,11 @@ export default function PharmacyMap({
       controllerRef.current?.destroy()
       controllerRef.current = null
     }
-  }, [failed])
+  }, [failed, origin, pharmacies])
 
   useEffect(() => {
-    controllerRef.current?.update({ origin, pharmacies, nearestId, selectedId })
-  }, [origin, pharmacies, nearestId, selectedId])
+    controllerRef.current?.select(selectedId)
+  }, [selectedId])
 
   useEffect(() => {
     controllerRef.current?.setDark(dark)

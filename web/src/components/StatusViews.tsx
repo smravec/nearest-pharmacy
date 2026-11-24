@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { Ref } from 'react'
 import { formatRadius } from '../domain/format'
-import type { LocationProblem, Origin } from '../domain/types'
+import type { LocationProblem, LookupState, Origin } from '../domain/types'
 
 const SLOW_AFTER_MS = 4000
 
@@ -30,6 +30,8 @@ const DENIED_COPY: Record<LocationProblem, Copy> = {
 }
 
 export const ERROR_TITLE = "Pharmacies couldn't be loaded"
+export const ERROR_TEXT =
+  "We couldn't reach the pharmacy data services. Check your connection and try again."
 
 export function deniedCopy(problem: LocationProblem): Copy {
   return DENIED_COPY[problem]
@@ -58,7 +60,7 @@ const PRIMER_ROWS = [
   },
 ]
 
-export function Primer() {
+function Primer() {
   return (
     <section className="np-panel">
       <h2>Before you share your location</h2>
@@ -76,7 +78,7 @@ export function Primer() {
   )
 }
 
-export function LocatingView() {
+function LocatingView() {
   return (
     <section className="np-panel">
       <h2>Finding your location…</h2>
@@ -90,7 +92,7 @@ interface DeniedViewProps {
   headingRef: Ref<HTMLHeadingElement>
 }
 
-export function DeniedView({ problem, headingRef }: DeniedViewProps) {
+function DeniedView({ problem, headingRef }: DeniedViewProps) {
   const { title, text } = deniedCopy(problem)
   return (
     <section className="np-panel">
@@ -100,6 +102,22 @@ export function DeniedView({ problem, headingRef }: DeniedViewProps) {
       <p>{text}</p>
     </section>
   )
+}
+
+interface IdleViewProps {
+  lookup: LookupState
+  headingRef: Ref<HTMLHeadingElement>
+}
+
+export function IdleView({ lookup, headingRef }: IdleViewProps) {
+  switch (lookup.status) {
+    case 'locating':
+      return <LocatingView />
+    case 'locationFailed':
+      return <DeniedView problem={lookup.problem} headingRef={headingRef} />
+    default:
+      return <Primer />
+  }
 }
 
 interface LoadingViewProps {
@@ -147,18 +165,17 @@ export function EmptyView({ origin, radiusM, headingRef }: EmptyViewProps) {
 }
 
 interface ErrorViewProps {
-  message: string
   onRetry(): void
   headingRef: Ref<HTMLHeadingElement>
 }
 
-export function ErrorView({ message, onRetry, headingRef }: ErrorViewProps) {
+export function ErrorView({ onRetry, headingRef }: ErrorViewProps) {
   return (
     <section className="np-panel">
       <h2 ref={headingRef} tabIndex={-1}>
         {ERROR_TITLE}
       </h2>
-      <p>{message}</p>
+      <p>{ERROR_TEXT}</p>
       <button type="button" className="np-btn np-btn--primary" onClick={onRetry}>
         Try again
       </button>

@@ -1,141 +1,92 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react'
-import type { Origin, SearchState } from '../domain/types'
+import { useEffect, useRef, useState } from 'react'
+import type { LookupState, Origin, SearchState } from '../domain/types'
 import { locate as requestLocation, LocationError } from '../services/geolocation'
-import { geocode as requestGeocode } from '../services/nominatim'
+import { geocode } from '../services/nominatim'
 import { findPharmacies } from '../services/pharmacies'
 
-export type GeocodeState =
-  | { status: 'idle' | 'searching' }
-  | { status: 'notFound' | 'failed'; query: string }
-
-interface State {
+interface PharmacySearch {
+  lookup: LookupState
   search: SearchState
-  geocode: GeocodeState
-}
-
-type Action =
-  | { type: 'search'; search: SearchState }
-  | { type: 'geocode'; geocode: GeocodeState }
-
-type LastRequest = { kind: 'locate' } | { kind: 'origin'; origin: Origin }
-
-const INITIAL_STATE: State = { search: { status: 'idle' }, geocode: { status: 'idle' } }
-
-const ERROR_MESSAGE =
-  "We couldn't reach the pharmacy data services. Check your connection and try again."
-
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case 'search':
-      return { ...state, search: action.search }
-    case 'geocode':
-      return { ...state, geocode: action.geocode }
-  }
-}
-
-export interface PharmacySearch {
-  state: SearchState
-  geocode: GeocodeState
   locate(): void
-  search(query: string): void
+  searchAddress(query: string): void
   retry(): void
 }
 
+/** A lookup finds the place, then a search finds the pharmacies around it. One of each runs at a time. */
 export function usePharmacySearch(): PharmacySearch {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
-  /** The locate or load in flight, if any. */
-  const runRef = useRef<AbortController | null>(null)
-  const geoRef = useRef<AbortController | null>(null)
-  const lastRef = useRef<LastRequest | null>(null)
+  const [lookup, setLookup] = useState<LookupState>({ status: 'idle' })
+  const [search, setSearch] = useState<SearchState>({ status: 'idle' })
+  const lookupRef = useRef<AbortController | null>(null)
+  const searchRef = useRef<AbortController | null>(null)
 
   useEffect(
     () => () => {
-      runRef.current?.abort()
-      geoRef.current?.abort()
+      lookupRef.current?.abort()
+      searchRef.current?.abort()
     },
     [],
   )
 
-  const load = useCallback(async (origin: Origin) => {
-    runRef.current?.abort()
+  function startLookup(status: 'locating' | 'searching'): AbortSignal {
+    lookupRef.current?.abort()
     const controller = new AbortController()
-    runRef.current = controller
-    lastRef.current = { kind: 'origin', origin }
-    const setSearch = (search: SearchState) => {
-      if (!controller.signal.aborted) dispatch({ type: 'search', search })
-    }
+    lookupRef.current = controller
+    setLookup({ status })
+    return controller.signal
+  }
 
+  /** Ends the lookup and replaces the search, which keeps going until there is a new place. */
+  async function load(origin: Origin) {
+    lookupRef.current?.abort()
+    searchRef.current?.abort()
+    const controller = new AbortController()
+    searchRef.current = controller
+    const { signal } = controller
+
+    setLookup({ status: 'idle' })
     setSearch({ status: 'loading', origin })
     try {
-      const result = await findPharmacies(origin, controller.signal)
+      const result = await findPharmacies(origin, signal)
+      if (signal.aborted) return
       setSearch(
         result.pharmacies.length > 0
           ? { status: 'ready', origin, result }
           : { status: 'empty', origin, radiusM: result.radiusM },
       )
     } catch {
-      setSearch({ status: 'error', origin, message: ERROR_MESSAGE })
+      if (!signal.aborted) setSearch({ status: 'error', origin })
     }
-  }, [])
+  }
 
-  const locate = useCallback(async () => {
-    runRef.current?.abort()
-    geoRef.current?.abort()
-    const controller = new AbortController()
-    runRef.current = controller
-    lastRef.current = { kind: 'locate' }
-
-    dispatch({ type: 'geocode', geocode: { status: 'idle' } })
-    dispatch({ type: 'search', search: { status: 'locating' } })
+  async function locate() {
+    const signal = startLookup('locating')
     try {
       const origin = await requestLocation()
-      if (!controller.signal.aborted) void load(origin)
+      if (!signal.aborted) void load(origin)
     } catch (error) {
-      if (controller.signal.aborted) return
+      if (signal.aborted) return
       const problem = error instanceof LocationError ? error.problem : 'unavailable'
-      dispatch({ type: 'search', search: { status: 'denied', problem } })
+      setLookup({ status: 'locationFailed', problem })
     }
-  }, [load])
+  }
 
-  const search = useCallback(
-    async (input: string) => {
-      const query = input.trim()
-      if (!query) return
-
-      // A locate or load in flight keeps going until the place is found: if the geocode fails,
-      // its result is still what the user should see.
-      geoRef.current?.abort()
-      const controller = new AbortController()
-      geoRef.current = controller
-      const setGeocode = (geocode: GeocodeState) => dispatch({ type: 'geocode', geocode })
-
-      setGeocode({ status: 'searching' })
-      try {
-        const origin = await requestGeocode(query, controller.signal)
-        if (controller.signal.aborted) return
-        if (!origin) {
-          setGeocode({ status: 'notFound', query })
-          return
-        }
-        setGeocode({ status: 'idle' })
-        void load(origin)
-      } catch {
-        if (!controller.signal.aborted) setGeocode({ status: 'failed', query })
-      }
-    },
-    [load],
-  )
-
-  const retry = useCallback(() => {
-    const last = lastRef.current
-    if (last?.kind === 'locate') void locate()
-    else if (last) {
-      // Otherwise an earlier address error would stay next to the new result.
-      geoRef.current?.abort()
-      dispatch({ type: 'geocode', geocode: { status: 'idle' } })
-      void load(last.origin)
+  async function searchAddress(input: string) {
+    const query = input.trim()
+    if (!query) return
+    const signal = startLookup('searching')
+    try {
+      const origin = await geocode(query, signal)
+      if (signal.aborted) return
+      if (origin) void load(origin)
+      else setLookup({ status: 'addressFailed', problem: 'notFound', query })
+    } catch {
+      if (!signal.aborted) setLookup({ status: 'addressFailed', problem: 'noAnswer', query })
     }
-  }, [load, locate])
+  }
 
-  return { state: state.search, geocode: state.geocode, locate, search, retry }
+  function retry() {
+    if ('origin' in search) void load(search.origin)
+  }
+
+  return { lookup, search, locate, searchAddress, retry }
 }

@@ -1,7 +1,7 @@
 import { LngLatBounds, Map as MapLibreMap, Marker, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import type { Origin, Pharmacy } from '../../domain/types'
-import { createPharmacyPin, createUserPin, updatePharmacyPin } from './pins'
+import { createPharmacyPin, createUserPin, setPinSelected } from './pins'
 
 // MapLibre cannot find its own worker in a Vite build, so it is emitted as an asset and named here.
 setWorkerUrl(workerUrl)
@@ -9,9 +9,8 @@ setWorkerUrl(workerUrl)
 const READY_TIMEOUT_MS = 10_000
 const FIT_COUNT = 3
 const FIT_MAX_ZOOM = 16
-const FIT_PADDING = 64
-// Pins stand above their point: the selected shape and its tag reach 90 px up.
-const FIT_PADDING_TOP = 96
+// Pins stand above their point, and the controls are at the right.
+const FIT_PADDING = { top: 96, right: 92, bottom: 64, left: 64 }
 const SELECT_ZOOM = 15
 const MOVE_MS = 700
 
@@ -19,29 +18,24 @@ function styleUrl(dark: boolean) {
   return `https://tiles.openfreemap.org/styles/${dark ? 'dark' : 'positron'}`
 }
 
-export interface MapView {
-  origin: Origin
-  pharmacies: Pharmacy[]
-  nearestId: string | null
-  selectedId: string | null
-}
-
-export interface MapControllerOptions {
+interface MapControllerOptions {
   container: HTMLElement
-  view: MapView
+  origin: Origin
+  /** Nearest first. */
+  pharmacies: Pharmacy[]
+  selectedId: string | null
   dark: boolean
   descriptionId: string
   onSelect(id: string): void
   onFail(): void
 }
 
-/** Owns the MapLibre instance. React creates it, feeds it views and destroys it. */
+/** Owns the MapLibre instance. React creates it, tells it what is selected and destroys it. */
 export class MapController {
   private readonly map: MapLibreMap
-  private readonly userMarker: Marker
-  private readonly pins = new Map<string, Marker>()
+  private readonly pins = new Map<string, HTMLElement>()
   private readonly options: MapControllerOptions
-  private view: MapView
+  private selectedId: string | null = null
   private dark: boolean
   private styleLoaded = false
   private ready = false
@@ -56,14 +50,14 @@ export class MapController {
 
   /** Throws when WebGL is unavailable. */
   constructor(options: MapControllerOptions) {
-    const { container, view, dark, descriptionId } = options
+    const { container, origin, pharmacies, selectedId, dark, descriptionId } = options
+    const center: [number, number] = [origin.position.lng, origin.position.lat]
     this.options = options
-    this.view = view
     this.dark = dark
     this.map = new MapLibreMap({
       container,
       style: styleUrl(dark),
-      center: [view.origin.position.lng, view.origin.position.lat],
+      center,
       zoom: 14,
       attributionControl: { compact: false },
       dragRotate: false,
@@ -77,10 +71,9 @@ export class MapController {
     this.map.keyboard.disableRotation()
     this.map.getCanvas().setAttribute('aria-describedby', descriptionId)
 
-    this.userMarker = new Marker({ element: createUserPin(), anchor: 'center' })
-      .setLngLat([view.origin.position.lng, view.origin.position.lat])
-      .addTo(this.map)
-    this.syncPins()
+    new Marker({ element: createUserPin(), anchor: 'center' }).setLngLat(center).addTo(this.map)
+    pharmacies.forEach((pharmacy, index) => this.addPin(pharmacy, index === 0))
+    this.markSelected(selectedId)
     this.fit(false)
 
     this.map.once('style.load', () => {
@@ -104,20 +97,10 @@ export class MapController {
     }, READY_TIMEOUT_MS)
   }
 
-  update(view: MapView) {
-    const previous = this.view
-    this.view = view
-    this.syncPins()
-
-    const { lng, lat } = view.origin.position
-    if (view.origin !== previous.origin) this.userMarker.setLngLat([lng, lat])
-
-    if (view.origin !== previous.origin || view.pharmacies !== previous.pharmacies) {
-      this.clickedId = null
-      this.fit(true)
-    } else if (view.selectedId !== previous.selectedId) {
-      this.showSelection()
-    }
+  select(id: string | null) {
+    if (id === this.selectedId) return
+    this.markSelected(id)
+    this.showSelection()
   }
 
   setDark(dark: boolean) {
@@ -177,61 +160,49 @@ export class MapController {
     window.clearTimeout(this.deadline)
   }
 
-  private syncPins() {
-    const { pharmacies, nearestId, selectedId } = this.view
-    const wanted = new Set(pharmacies.map((pharmacy) => pharmacy.id))
-    for (const [id, marker] of this.pins) {
-      if (wanted.has(id)) continue
-      marker.remove()
-      this.pins.delete(id)
-    }
-    for (const { id, name, position } of pharmacies) {
-      let marker = this.pins.get(id)
-      if (marker) {
-        marker.setLngLat([position.lng, position.lat])
-      } else {
-        marker = new Marker({ element: createPharmacyPin(() => this.handlePinClick(id)), anchor: 'bottom' })
-          .setLngLat([position.lng, position.lat])
-          .addTo(this.map)
-        this.pins.set(id, marker)
-      }
-      updatePharmacyPin(marker.getElement(), name, id === nearestId, id === selectedId)
-    }
+  private addPin({ id, name, position }: Pharmacy, nearest: boolean) {
+    const element = createPharmacyPin(name, nearest, () => this.handlePinClick(id))
+    const marker = new Marker({ element, anchor: 'bottom' })
+    marker.setLngLat([position.lng, position.lat]).addTo(this.map)
+    this.pins.set(id, element)
+  }
+
+  private markSelected(id: string | null) {
+    this.selectedId = id
+    for (const [pinId, pin] of this.pins) setPinSelected(pin, pinId === id)
   }
 
   private handlePinClick(id: string) {
-    if (id !== this.view.selectedId) this.clickedId = id
+    if (id !== this.selectedId) this.clickedId = id
     this.options.onSelect(id)
   }
 
   /** Frames the origin and the nearest few pharmacies, waiting for a size if there is none yet. */
   private fit(animate: boolean) {
     const { clientWidth, clientHeight } = this.map.getContainer()
-    const shortest = Math.min(clientWidth, clientHeight)
-    this.fitPending = shortest === 0
+    this.fitPending = clientWidth === 0 || clientHeight === 0
     if (this.fitPending) return
 
-    const { origin, pharmacies } = this.view
+    const { origin, pharmacies } = this.options
     const bounds = new LngLatBounds()
     for (const { lng, lat } of [origin.position, ...pharmacies.slice(0, FIT_COUNT).map((p) => p.position)]) {
       bounds.extend([lng, lat])
     }
-    const padding = Math.min(FIT_PADDING, shortest / 4)
     this.lastMove = 'fit'
     this.map.fitBounds(bounds, {
-      padding: { top: Math.min(FIT_PADDING_TOP, shortest / 2), right: padding, bottom: padding, left: padding },
+      padding: FIT_PADDING,
       maxZoom: FIT_MAX_ZOOM,
       duration: animate ? MOVE_MS : 0,
     })
   }
 
   private showSelection() {
-    const { selectedId, nearestId, pharmacies } = this.view
-    const clicked = this.clickedId === selectedId
+    const { pharmacies } = this.options
+    const clicked = this.clickedId === this.selectedId
     this.clickedId = null
-    const selected = pharmacies.find((pharmacy) => pharmacy.id === selectedId)
+    const selected = pharmacies.find((pharmacy) => pharmacy.id === this.selectedId)
     if (!selected) return
-    if (selectedId === nearestId && this.lastMove === 'fit') return
+    if (selected === pharmacies[0] && this.lastMove === 'fit') return
 
     const center: [number, number] = [selected.position.lng, selected.position.lat]
     this.lastMove = 'select'

@@ -14,9 +14,10 @@ function path(className: string, d: string) {
  * the result list is the accessible way to reach the same pharmacies.
  * MapLibre writes `transform` and `opacity` on the root, so all visual states live on its children.
  */
-export function createPharmacyPin(onClick: () => void): HTMLElement {
+export function createPharmacyPin(name: string, nearest: boolean, onClick: () => void): HTMLElement {
   const root = document.createElement('div')
-  root.className = 'pmap-pin'
+  root.className = nearest ? 'pmap-pin pmap-pin--nearest' : 'pmap-pin'
+  root.title = name
   root.setAttribute('aria-hidden', 'true')
   root.addEventListener('click', onClick)
 
@@ -27,17 +28,14 @@ export function createPharmacyPin(onClick: () => void): HTMLElement {
 
   const tag = document.createElement('span')
   tag.className = 'pmap-pin__tag'
+  // The title has no tooltip on touch screens, so the tag names the selected pharmacy.
+  tag.textContent = nearest ? 'Nearest' : name
 
   root.append(svg, tag)
   return root
 }
 
-export function updatePharmacyPin(root: HTMLElement, name: string, nearest: boolean, selected: boolean) {
-  root.title = name
-  const tag = root.querySelector('.pmap-pin__tag')
-  // The title has no tooltip on touch screens, so the tag names the selected pharmacy.
-  if (tag) tag.textContent = nearest ? 'Nearest' : name
-  root.classList.toggle('pmap-pin--nearest', nearest)
+export function setPinSelected(root: HTMLElement, selected: boolean) {
   root.classList.toggle('pmap-pin--selected', selected)
 }
 

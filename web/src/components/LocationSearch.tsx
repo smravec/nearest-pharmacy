@@ -1,37 +1,44 @@
 import { useRef, useState } from 'react'
 import type { ChangeEvent, SubmitEvent } from 'react'
-import type { GeocodeState } from '../hooks/usePharmacySearch'
+import type { LookupState } from '../domain/types'
+import { deniedCopy } from './StatusViews'
 
 interface LocationSearchProps {
-  geocode: GeocodeState
-  locating: boolean
+  lookup: LookupState
+  /** The page shows a location failure itself while there is nothing else to show. */
+  showLocationError: boolean
   onEdit(): void
   onSearch(query: string): void
   onLocate(): void
 }
 
-export function geocodeErrorText(geocode: GeocodeState): string | null {
-  switch (geocode.status) {
-    case 'notFound':
-      return `No place found for “${geocode.query}”. Check the spelling or add a city.`
-    case 'failed':
-      return `Search for “${geocode.query}” didn't work. Check your connection and try again.`
+export function lookupErrorText(lookup: LookupState): string {
+  switch (lookup.status) {
+    case 'locationFailed': {
+      const { title, text } = deniedCopy(lookup.problem)
+      return `${title}. ${text}`
+    }
+    case 'addressFailed':
+      return lookup.problem === 'notFound'
+        ? `No place found for “${lookup.query}”. Check the spelling or add a city.`
+        : `Search for “${lookup.query}” didn't work. Check your connection and try again.`
     default:
-      return null
+      return ''
   }
 }
 
 export function LocationSearch({
-  geocode,
-  locating,
+  lookup,
+  showLocationError,
   onEdit,
   onSearch,
   onLocate,
 }: LocationSearchProps) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const searching = geocode.status === 'searching'
-  const error = geocodeErrorText(geocode)
+  const locating = lookup.status === 'locating'
+  const addressFailed = lookup.status === 'addressFailed'
+  const showError = addressFailed || (showLocationError && lookup.status === 'locationFailed')
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     setQuery(event.target.value)
@@ -44,7 +51,6 @@ export function LocationSearch({
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (searching) return
     const trimmed = query.trim()
     if (trimmed) onSearch(trimmed)
     else inputRef.current?.focus()
@@ -75,16 +81,16 @@ export function LocationSearch({
           placeholder="For example Kallio, Helsinki"
           value={query}
           onChange={handleChange}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'np-q-error' : undefined}
+          aria-invalid={addressFailed || undefined}
+          aria-describedby={addressFailed ? 'np-lookup-error' : undefined}
         />
-        <button type="submit" className="np-btn np-btn--secondary" aria-disabled={searching || undefined}>
-          {searching ? 'Searching…' : 'Search'}
+        <button type="submit" className="np-btn np-btn--secondary">
+          {lookup.status === 'searching' ? 'Searching…' : 'Search'}
         </button>
       </form>
-      {error && (
-        <p id="np-q-error" className="np-search__error">
-          {error}
+      {showError && (
+        <p id="np-lookup-error" className="np-search__error">
+          {lookupErrorText(lookup)}
         </p>
       )}
     </div>

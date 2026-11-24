@@ -4,19 +4,12 @@ import { flushSync } from 'react-dom'
 import { Attribution } from './components/Attribution'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
-import { announcement, LiveRegion } from './components/LiveRegion'
+import { LiveRegion, lookupMessage, searchMessage } from './components/LiveRegion'
 import { LocationSearch } from './components/LocationSearch'
 import { MapBoundary } from './components/MapBoundary'
 import { NearestCard } from './components/NearestCard'
 import { PharmacyList } from './components/PharmacyList'
-import {
-  DeniedView,
-  EmptyView,
-  ErrorView,
-  LoadingView,
-  LocatingView,
-  Primer,
-} from './components/StatusViews'
+import { EmptyView, ErrorView, IdleView, LoadingView } from './components/StatusViews'
 import type { Origin, Pharmacy, PharmacyResult } from './domain/types'
 import { useOpenStates } from './hooks/useOpenStates'
 import { usePharmacySearch } from './hooks/usePharmacySearch'
@@ -84,7 +77,6 @@ function Results({ origin, result, headingRef, onRetry }: ResultsProps) {
             <PharmacyMap
               origin={origin}
               pharmacies={pharmacies}
-              nearestId={nearest?.id ?? null}
               selectedId={selectedId}
               onSelect={handlePin}
             />
@@ -105,34 +97,30 @@ function Results({ origin, result, headingRef, onRetry }: ResultsProps) {
 }
 
 export function App() {
-  const { state, geocode, locate, search, retry } = usePharmacySearch()
+  const { lookup, search, locate, searchAddress, retry } = usePharmacySearch()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const pendingFocus = useRef<{ from: Element | null } | null>(null)
   const [slowOrigin, setSlowOrigin] = useState<Origin | null>(null)
-  const slow = state.status === 'loading' && slowOrigin === state.origin
-
-  // Declared first: a failed address search has to drop the pending move before the next effect runs.
-  useEffect(() => {
-    if (geocode.status === 'notFound' || geocode.status === 'failed') pendingFocus.current = null
-  }, [geocode])
+  const slow = search.status === 'loading' && slowOrigin === search.origin
 
   useEffect(() => {
     const pending = pendingFocus.current
-    if (!pending || state.status === 'idle' || state.status === 'locating' || state.status === 'loading') {
-      return
-    }
-    // This is an earlier load finishing while a new address is being looked up.
-    if (geocode.status === 'searching') return
+    if (!pending || lookup.status === 'locating' || lookup.status === 'searching') return
+    // A lookup that fails beside an earlier search changes nothing but the message at the controls.
+    const failed = lookup.status !== 'idle' && search.status !== 'idle'
+    if (!failed && search.status === 'loading') return
     pendingFocus.current = null
+    if (failed) return
     // Anyone who moved on while waiting keeps their place.
     const active = document.activeElement
+    // An address error on its own has no heading, so the focus stays in the field.
     if (active === document.body || active === pending.from) headingRef.current?.focus()
-  }, [state, geocode])
+  }, [lookup, search])
 
   function beginRequest() {
     pendingFocus.current = { from: document.activeElement }
     // Origins can be reused by a retry or a repeated search, which would show the slow notice at once.
-    if (state.status !== 'loading') setSlowOrigin(null)
+    if (search.status !== 'loading') setSlowOrigin(null)
   }
 
   // Editing the address again means staying in the field when the results arrive.
@@ -147,7 +135,7 @@ export function App() {
 
   function handleSearch(query: string) {
     beginRequest()
-    search(query)
+    searchAddress(query)
   }
 
   function handleRetry() {
@@ -160,31 +148,27 @@ export function App() {
       <div className="np-shell">
         <Header />
         <main className="np-main">
-          <Hero state={state}>
+          <Hero search={search}>
             <LocationSearch
-              geocode={geocode}
-              locating={state.status === 'locating'}
+              lookup={lookup}
+              showLocationError={search.status !== 'idle'}
               onEdit={handleEdit}
               onSearch={handleSearch}
               onLocate={handleLocate}
             />
           </Hero>
-          {state.status === 'idle' && <Primer />}
-          {state.status === 'locating' && <LocatingView />}
-          {state.status === 'denied' && <DeniedView problem={state.problem} headingRef={headingRef} />}
-          {state.status === 'loading' && (
-            <LoadingView origin={state.origin} slow={slow} onSlow={setSlowOrigin} />
+          {search.status === 'idle' && <IdleView lookup={lookup} headingRef={headingRef} />}
+          {search.status === 'loading' && (
+            <LoadingView origin={search.origin} slow={slow} onSlow={setSlowOrigin} />
           )}
-          {state.status === 'empty' && (
-            <EmptyView origin={state.origin} radiusM={state.radiusM} headingRef={headingRef} />
+          {search.status === 'empty' && (
+            <EmptyView origin={search.origin} radiusM={search.radiusM} headingRef={headingRef} />
           )}
-          {state.status === 'error' && (
-            <ErrorView message={state.message} onRetry={handleRetry} headingRef={headingRef} />
-          )}
-          {state.status === 'ready' && (
+          {search.status === 'error' && <ErrorView onRetry={handleRetry} headingRef={headingRef} />}
+          {search.status === 'ready' && (
             <Results
-              origin={state.origin}
-              result={state.result}
+              origin={search.origin}
+              result={search.result}
               headingRef={headingRef}
               onRetry={handleRetry}
             />
@@ -192,7 +176,8 @@ export function App() {
         </main>
         <Attribution />
       </div>
-      <LiveRegion message={announcement(state, geocode, slow)} />
+      <LiveRegion message={lookupMessage(lookup)} />
+      <LiveRegion message={searchMessage(search, slow)} />
     </>
   )
 }

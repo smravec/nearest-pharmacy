@@ -1,15 +1,28 @@
 import { formatDistance, formatRadius, formatWalk } from '../domain/format'
-import type { PharmacyResult, SearchState } from '../domain/types'
-import type { GeocodeState } from '../hooks/usePharmacySearch'
-import { geocodeErrorText } from './LocationSearch'
-import { deniedCopy, emptyCopy, ERROR_TITLE } from './StatusViews'
+import type { LookupState, PharmacyResult, SearchState } from '../domain/types'
+import { lookupErrorText } from './LocationSearch'
+import { emptyCopy, ERROR_TEXT, ERROR_TITLE } from './StatusViews'
 
+/** One per state, so that neither can hide or repeat what the other has to say. */
 export function LiveRegion({ message }: { message: string }) {
   return (
     <p className="np-sr" role="status" aria-live="polite" aria-atomic="true">
       {message}
     </p>
   )
+}
+
+export function lookupMessage(lookup: LookupState): string {
+  switch (lookup.status) {
+    case 'idle':
+      return ''
+    case 'locating':
+      return 'Finding your location.'
+    case 'searching':
+      return 'Searching for the address.'
+    default:
+      return lookupErrorText(lookup)
+  }
 }
 
 // Opening status is left out: it loads later and refreshes every minute, which would re-announce.
@@ -24,35 +37,19 @@ function readyMessage({ pharmacies, radiusM, truncated }: PharmacyResult): strin
   return `Nearest pharmacy: ${nearest.name}, ${distance} away${walk}. ${count}`
 }
 
-function stateMessage(state: SearchState, slow: boolean): string {
-  switch (state.status) {
+export function searchMessage(search: SearchState, slow: boolean): string {
+  switch (search.status) {
     case 'idle':
       return ''
-    case 'locating':
-      return 'Finding your location.'
-    case 'denied': {
-      const { title, text } = deniedCopy(state.problem)
-      return `${title}. ${text}`
-    }
     case 'loading':
       return slow ? 'Still looking for pharmacies.' : 'Looking for pharmacies.'
     case 'ready':
-      return readyMessage(state.result)
+      return readyMessage(search.result)
     case 'empty': {
-      const { title, text } = emptyCopy(state.origin, state.radiusM)
+      const { title, text } = emptyCopy(search.origin, search.radiusM)
       return `${title}. ${text}`
     }
     case 'error':
-      return `${ERROR_TITLE}. ${state.message}`
+      return `${ERROR_TITLE}. ${ERROR_TEXT}`
   }
-}
-
-export function announcement(state: SearchState, geocode: GeocodeState, slow: boolean): string {
-  if (geocode.status === 'searching') return 'Searching for the address.'
-  const message = stateMessage(state, slow)
-  const error = geocodeErrorText(geocode)
-  if (!error) return message
-  // Otherwise an outcome that arrives after a failed address lookup would never be announced.
-  const waiting = state.status === 'idle' || state.status === 'locating' || state.status === 'loading'
-  return waiting ? error : `${error} ${message}`
 }

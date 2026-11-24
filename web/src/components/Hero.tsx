@@ -5,7 +5,7 @@ import type { Origin, SearchState } from '../domain/types'
 const LOW_ACCURACY_M = 200
 
 interface HeroProps {
-  state: SearchState
+  search: SearchState
   children: ReactNode
 }
 
@@ -14,8 +14,8 @@ function title(origin: Origin | null): string {
   return origin.source === 'gps' ? 'Pharmacies near you' : `Pharmacies near ${origin.label}`
 }
 
-export function Hero({ state, children }: HeroProps) {
-  const origin = 'origin' in state ? state.origin : null
+export function Hero({ search, children }: HeroProps) {
+  const origin = 'origin' in search ? search.origin : null
   const accuracyM = origin?.accuracyM ?? 0
 
   return (
