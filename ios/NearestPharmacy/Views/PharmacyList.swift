@@ -3,23 +3,20 @@ import SwiftUI
 /// The pharmacies after the nearest one, which has its own card.
 struct PharmacyList: View {
     let model: AppModel
+    let others: [Pharmacy]
 
     var body: some View {
-        if model.pharmacies.count > 1 {
+        if !others.isEmpty {
             Text("Other pharmacies nearby")
                 .font(.headline)
                 .foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 8)
-            ForEach(rankedOthers, id: \.pharmacy.id) { rank, pharmacy in
-                PharmacyRow(model: model, pharmacy: pharmacy, rank: rank)
+            ForEach(Array(others.enumerated()), id: \.element.id) { index, pharmacy in
+                PharmacyRow(model: model, pharmacy: pharmacy, rank: index + 2)
                     .id(pharmacy.id)
             }
         }
-    }
-
-    private var rankedOthers: [(rank: Int, pharmacy: Pharmacy)] {
-        model.pharmacies.enumerated().dropFirst().map { (rank: $0.offset + 1, pharmacy: $0.element) }
     }
 }
 
@@ -74,8 +71,10 @@ private struct PharmacyRow: View {
             VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
                 Text(Format.distance(pharmacy.distanceMeters))
                     .foregroundStyle(Theme.ink)
-                Text(Format.walk(pharmacy.walkMinutes))
-                    .foregroundStyle(Theme.muted)
+                if let walk = pharmacy.estimatedWalk {
+                    Text(Format.walk(walk))
+                        .foregroundStyle(Theme.muted)
+                }
             }
             .font(.subheadline)
             .monospacedDigit()
@@ -93,7 +92,7 @@ private struct PharmacyRow: View {
         [
             pharmacy.name,
             Format.spokenDistance(pharmacy.distanceMeters),
-            Format.spokenWalk(pharmacy.walkMinutes),
+            pharmacy.estimatedWalk.map(Format.spokenWalk),
             pharmacy.address,
         ]
         .compactMap(\.self)
@@ -118,16 +117,13 @@ struct AttributionView: View {
             }
         }
         .foregroundStyle(Theme.body)
-        // Inside a Form row, the default style would open both links with one tap.
-        .buttonStyle(.borderless)
+        .buttonStyle(.textLink)
     }
 
-    @ViewBuilder
     private var openStreetMap: some View {
         link("© OpenStreetMap contributors (ODbL)", to: "https://www.openstreetmap.org/copyright")
     }
 
-    @ViewBuilder
     private var photon: some View {
         link("Photon", to: "https://photon.komoot.io")
     }
@@ -135,14 +131,7 @@ struct AttributionView: View {
     @ViewBuilder
     private func link(_ title: String, to address: String) -> some View {
         if let url = URL(string: address) {
-            Link(destination: url) {
-                Text(title)
-                    .underline()
-                    .foregroundStyle(Theme.action)
-                    .multilineTextAlignment(.leading)
-                    .frame(minWidth: Theme.minimumTarget, minHeight: Theme.minimumTarget, alignment: .leading)
-                    .contentShape(.rect)
-            }
+            Link(title, destination: url)
         }
     }
 }

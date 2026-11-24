@@ -3,10 +3,11 @@ import SwiftUI
 struct NearestCard: View {
     let model: AppModel
     let pharmacy: Pharmacy
+    let isApproximate: Bool
     let focus: AccessibilityFocusState<Bool>.Binding
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             Button {
                 model.select(pharmacy.id)
             } label: {
@@ -18,8 +19,8 @@ struct NearestCard: View {
             .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : .isHeader)
             .accessibilityFocused(focus)
 
-            Label("OpenStreetMap may list pharmacies that have closed down. Check before you go.", systemImage: "info.circle")
-                .font(.subheadline)
+            Label("Hours not checked. May have closed down.", systemImage: "info.circle")
+                .font(.footnote)
                 .foregroundStyle(Theme.amber)
 
             PharmacyActions(model: model, pharmacy: pharmacy)
@@ -28,14 +29,14 @@ struct NearestCard: View {
     }
 
     private var summary: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Nearest")
+        VStack(alignment: .leading, spacing: 2) {
+            Text(isApproximate ? "Pharmacies near you" : "Nearest")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.tealText)
             Text(pharmacy.name)
                 .font(.title2.bold())
                 .foregroundStyle(Theme.ink)
-            Text("\(Format.distance(pharmacy.distanceMeters)) · \(Format.walk(pharmacy.walkMinutes))")
+            Text([Format.distance(pharmacy.distanceMeters), walk.map(Format.walk)].compactMap(\.self).joined(separator: " · "))
                 .monospacedDigit()
                 .foregroundStyle(Theme.body)
             if let address = pharmacy.address {
@@ -43,13 +44,14 @@ struct NearestCard: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
             }
-            Text("Straight-line distance; walking time is an estimate at 5 km/h.")
-                .font(.caption)
-                .foregroundStyle(Theme.muted)
         }
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, minHeight: Theme.minimumTarget, alignment: .leading)
         .contentShape(.rect)
+    }
+
+    private var walk: WalkingTime? {
+        model.routeWalk ?? pharmacy.estimatedWalk
     }
 
     private var isSelected: Bool {
@@ -58,9 +60,9 @@ struct NearestCard: View {
 
     private var spokenSummary: String {
         [
-            "Nearest pharmacy: \(pharmacy.name)",
+            "\(isApproximate ? "Pharmacies near you" : "Nearest pharmacy"): \(pharmacy.name)",
             "\(Format.spokenDistance(pharmacy.distanceMeters)) in a straight line",
-            Format.spokenWalk(pharmacy.walkMinutes),
+            walk.map(Format.spokenWalk),
             pharmacy.address,
         ]
         .compactMap(\.self)
@@ -71,7 +73,8 @@ struct NearestCard: View {
 extension View {
     /// The bar marks the pharmacy selected on the map.
     func pharmacyCard(isSelected: Bool) -> some View {
-        padding()
+        padding(.horizontal)
+            .padding(.vertical, 12)
             .background(Theme.sheet)
             .overlay(alignment: .leading) {
                 if isSelected {
@@ -90,40 +93,43 @@ struct PharmacyActions: View {
     let pharmacy: Pharmacy
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     directions
+                    call
                     details
-                    googleMaps
                 }
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     directions
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        call
                         details
-                        googleMaps
                     }
                 }
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     directions
+                    call
                     details
-                    googleMaps
                 }
             }
-            if let detailsMessage {
-                Text(detailsMessage)
+            if let message = place?.message {
+                Text(message)
                     .font(.subheadline)
                     .foregroundStyle(Theme.body)
+                    .padding(.top, 4)
+            }
+            if let url = WebLink.googleMaps(pharmacy) {
+                Link("Google Maps", destination: url)
+                    .buttonStyle(.textLink)
+                    .font(.subheadline)
+                    .accessibilityHint("Searches for this pharmacy in Google Maps")
             }
         }
     }
 
-    private var detailsMessage: String? {
-        switch pharmacy.id {
-        case model.detailsUnavailableID: "Apple Maps has no details for this pharmacy."
-        case model.detailsFailedID: "Couldn't reach Apple Maps. Try again."
-        default: nil
-        }
+    private var place: PlaceDetails? {
+        model.details[pharmacy.id]
     }
 
     private var directions: some View {
@@ -132,15 +138,23 @@ struct PharmacyActions: View {
         } label: {
             Label("Directions", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
         }
-        .buttonStyle(PrimaryPillStyle())
+        .buttonStyle(.primaryPill)
         .accessibilityHint("Opens Apple Maps")
+    }
+
+    @ViewBuilder
+    private var call: some View {
+        if let url = place?.phoneURL {
+            Link("Call", destination: url)
+                .buttonStyle(.secondaryPill)
+        }
     }
 
     private var details: some View {
         Button {
             model.showDetails(for: pharmacy)
         } label: {
-            if isLoadingDetails {
+            if place == .loading {
                 HStack(spacing: 8) {
                     ProgressView().accessibilityHidden(true)
                     Text("Loading details")
@@ -149,21 +163,8 @@ struct PharmacyActions: View {
                 Text("Details")
             }
         }
-        .buttonStyle(SecondaryPillStyle())
-        .disabled(isLoadingDetails)
+        .buttonStyle(.secondaryPill)
+        .disabled(place == .loading)
         .accessibilityHint("Shows Apple Maps information")
-    }
-
-    @ViewBuilder
-    private var googleMaps: some View {
-        if let url = pharmacy.googleMapsURL {
-            Link("Google Maps", destination: url)
-                .buttonStyle(SecondaryPillStyle())
-                .accessibilityHint("Searches for this pharmacy in Google Maps")
-        }
-    }
-
-    private var isLoadingDetails: Bool {
-        model.detailsLoadingID == pharmacy.id
     }
 }

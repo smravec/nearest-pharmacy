@@ -1,6 +1,6 @@
 # Nearest pharmacy for iOS
 
-A SwiftUI app that finds the pharmacy closest to you. It is an independent demo. No dependencies,
+A SwiftUI app that finds the pharmacy closest to you. It is an independent demo with no dependencies,
 API keys or accounts.
 
 ## Run it
@@ -15,47 +15,66 @@ Central (60.1719, 24.9414).
 
 1. **Where you are.** Location is requested only after you tap "Use my location". Without it, you can
    search for an address or place (Apple's search).
-2. **Which pharmacies.** [Photon](https://photon.komoot.io) searches OpenStreetMap within 5, 15, 50,
-   then 100 km, stopping at the first radius with a result. The app sorts them by straight-line distance.
-3. **Details.** Photon has no opening hours. Tapping Details looks the pharmacy up in Apple Maps and
-   shows Apple's place card, but only if the category, distance (150 m at most) and name all match. Otherwise
-   the app says there are no details, or that Apple Maps couldn't be reached.
+2. **Which pharmacies.** One request to [Photon](https://photon.komoot.io) returns up to 30 OpenStreetMap
+   pharmacies within 100 km. It gets your position rounded to about 100 m. The app ranks the results on
+   the phone, from your exact position.
+3. **The nearest one.** The app looks it up in Apple Maps on its own, to show the walking time and a Call
+   button. Apple's place is used only if the category, distance and name agree. Otherwise the app says it
+   couldn't match it.
+4. **Details.** Tapping Details opens Apple's place card, with opening hours and phone when Apple has them.
 
 ### Why not MapKit's pharmacy search?
 
-I compared both at ten public points on 2026-11-24. MapKit's pharmacy category returned a vape shop in
-Helsinki and a supplement store in Rovaniemi. OpenStreetMap had pharmacies within 5 km of nine of the
-ten points, and 15 km was enough for the tenth. So OpenStreetMap decides what is nearest, and Apple
-Maps only adds details.
+Because it returns places that aren't pharmacies. On 2026-11-24 I compared both sources at ten public
+points, each with a 5 km radius. The nearest result of each:
 
-This has a cost: OpenStreetMap can list a pharmacy that has closed. At one test point (Kallio, Helsinki)
-the nearest one in OpenStreetMap is marked "Permanently Closed" in Apple Maps, and I could not find out
-which is right. MapKit exposes no closure status in code, so the app only shows this if you tap
-Details and Apple's place matches. The nearest card warns that OpenStreetMap may list pharmacies that
-have closed down, and the Google Maps button opens a Google search for the pharmacy (a link, no API key).
+| Point | MapKit pharmacy category | OpenStreetMap (Photon) |
+|---|---|---|
+| Helsinki Central | Steissin Apteekki, 66 m | Steissin Apteekki, 42 m |
+| Kallio, Helsinki | Camila Poteket, 426 m | Brahen Apteekki, 253 m |
+| Vuosaari, Helsinki | Apteekki Kompassi, 132 m | Apteekki Kompassi, 64 m |
+| Tapiola, Espoo | Tapiolan apteekki, 18 m | Tapiolan Apteekki, 44 m |
+| Tampere | Yliopiston Apteekki, 130 m | Yliopiston Apteekki, 123 m |
+| Rovaniemi | Sampo Apteekki, 193 m | Sampo Apteekki, 208 m |
+| Nuuksio, Espoo | none | none (Veikkolan apteekki within 15 km) |
+| Berlin Mitte | Nexus peptides science, 263 m | Apotheke Hackesches Quartier, 296 m |
+| London | Dewshi Chemist, 56 m | Boots, 238 m |
+| New York | Duane Reade, 72 m | Duane Reade, 79 m |
+
+MapKit's results also included a vape shop in Helsinki and a supplement store in Rovaniemi.
+OpenStreetMap isn't always better: it lacked London's Dewshi Chemist. And it can list a pharmacy that has
+closed: Apple Maps marks Brahen Apteekki "Permanently Closed", and I could not find out which is right.
+
+MapKit exposes no closure status or opening hours in code, so the app can't check either. The nearest
+card says so, and offers Call, Details and a Google Maps link (a search, no API key).
 
 ## Code
 
 | Folder | Contents |
 |---|---|
-| `Domain/` | Value types, protocols, distance and formatting |
-| `Services/` | Photon, Core Location, Apple place search and details |
+| `Domain/` | Value types, name matching, links, formatting |
+| `Services/` | Photon, Core Location, Apple Maps |
 | `Model/` | `AppModel`, the observable state the views bind to |
 | `Views/` | SwiftUI screens |
 | `Design/` | Colors, button styles, assets |
 
-The services sit behind protocols, so `AppModel` doesn't depend on the network or on location.
-Results of a search that has been replaced are ignored, even if they arrive late.
-
-In Debug builds the launch argument `-failPharmacySearch` makes the first search fail, to show the
-error screen and Try again.
+Three small protocols let the Xcode previews run on fakes. In Debug builds the launch argument
+`-failPharmacySearch` (unticked in the scheme) makes the first search fail, to show the error screen.
 
 ## Limits
 
-- Distances are straight lines, and walking time assumes 5 km/h.
-- Photon is a free public service with no uptime promise and no fallback here. If it fails, the app
-  says so and offers Try again. It never reports "no pharmacies" for a failed request.
-- OpenStreetMap and Apple Maps can be out of date.
-- Your position, or the place you search for, is sent to Photon and Apple. The Google Maps button sends
-  that pharmacy's name and address, or its position, to Google.
+- Distances are straight lines. Only the nearest pharmacy gets Apple's walking time; others marked `~` are
+  estimates at 5 km/h, and beyond 3 km the app shows none.
+- Opening hours aren't checked.
+- Photon is a free public service with no uptime promise and no second source here. If it fails, the app
+  says so and offers Try again and Apple Maps. It never reports "no pharmacies" for a failed request.
+- OpenStreetMap and Apple Maps can be out of date, and OpenStreetMap lists some places that only hand out
+  orders as pharmacies.
+- Your rounded position is sent to Photon. Apple gets the places you search for, your position for the
+  walking time, and the nearest pharmacy's name. The Google Maps link sends that pharmacy's name and address, or its position, to Google.
 - English only.
+
+## Next
+
+Show opening hours for the nearest pharmacies (OpenStreetMap has them, and the web app evaluates them),
+add Finnish and Swedish, and add a second source for when Photon is down.

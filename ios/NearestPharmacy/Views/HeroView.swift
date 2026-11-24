@@ -8,7 +8,7 @@ struct HeroView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 card
-                Text("Your position is sent to Photon, which searches OpenStreetMap, and to Apple Maps.")
+                Text("Your position is sent to Photon (rounded to about 100 m), which searches OpenStreetMap, and to Apple Maps.")
                     .font(.footnote)
                     .foregroundStyle(Theme.body)
             }
@@ -30,9 +30,9 @@ struct HeroView: View {
             Text("See the closest pharmacies, how far they are and how to walk there.")
             VStack(alignment: .leading, spacing: 12) {
                 Button("Use my location", action: useLocation)
-                    .buttonStyle(PrimaryPillStyle())
+                    .buttonStyle(.primaryPill)
                 Button("Search for a place", action: search)
-                    .buttonStyle(SecondaryPillStyle())
+                    .buttonStyle(.secondaryPill)
             }
             .padding(.top, 8)
         }

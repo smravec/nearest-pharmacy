@@ -10,10 +10,10 @@ struct SearchStatusView: View {
     var body: some View {
         switch model.state {
         case .locating: locating
-        case .loading: loading
+        case .loading(let origin): loading(origin)
         case .denied: denied
         case .empty(let radiusKilometers): empty(radiusKilometers)
-        case .failed(let failure): failed(failure)
+        case .failed(let failure, let origin): failed(failure, near: origin)
         case .idle, .ready: EmptyView()
         }
     }
@@ -28,11 +28,11 @@ struct SearchStatusView: View {
         }
     }
 
-    private var loading: some View {
+    private func loading(_ origin: Origin) -> some View {
         StatusView(
             icon: nil,
             title: "Finding pharmacies",
-            message: "Looking near \(model.origin?.labelInSentence ?? "you")."
+            message: "Looking near \(origin.labelInSentence)."
         ) {
             SkeletonRows()
         }
@@ -46,7 +46,7 @@ struct SearchStatusView: View {
         ) {
             primarySearch
             Button("Try again", action: model.retry)
-                .buttonStyle(SecondaryPillStyle())
+                .buttonStyle(.secondaryPill)
             openSettings
         }
     }
@@ -62,7 +62,7 @@ struct SearchStatusView: View {
     }
 
     @ViewBuilder
-    private func failed(_ failure: SearchFailure) -> some View {
+    private func failed(_ failure: SearchFailure, near origin: Origin?) -> some View {
         switch failure {
         case .offline:
             StatusView(
@@ -71,15 +71,17 @@ struct SearchStatusView: View {
                 message: "Check your connection and try again."
             ) {
                 tryAgain
+                searchInAppleMaps(near: origin)
             }
         case .serviceUnavailable:
             StatusView(
                 icon: "exclamationmark.triangle",
                 title: "Pharmacy search isn't responding",
-                message: "The search service couldn't be reached. This doesn't mean there are no pharmacies nearby."
+                message: failure.message
             ) {
                 tryAgain
                 secondarySearch
+                searchInAppleMaps(near: origin)
             }
         case .locationUnavailable:
             StatusView(
@@ -91,37 +93,37 @@ struct SearchStatusView: View {
                 secondarySearch
                 openSettings
             }
-        case .placeNotFound:
-            StatusView(
-                icon: "magnifyingglass",
-                title: "Place not found",
-                message: "Try a different address or place."
-            ) {
-                primarySearch
-            }
         }
     }
 
     private var tryAgain: some View {
         Button("Try again", action: model.retry)
-            .buttonStyle(PrimaryPillStyle())
+            .buttonStyle(.primaryPill)
     }
 
     private var primarySearch: some View {
         Button("Search for a place", action: search)
-            .buttonStyle(PrimaryPillStyle())
+            .buttonStyle(.primaryPill)
     }
 
     private var secondarySearch: some View {
         Button("Search for a place", action: search)
-            .buttonStyle(SecondaryPillStyle())
+            .buttonStyle(.secondaryPill)
+    }
+
+    @ViewBuilder
+    private func searchInAppleMaps(near origin: Origin?) -> some View {
+        if let url = WebLink.appleMapsPharmacies(near: origin) {
+            Link("Search in Apple Maps", destination: url)
+                .buttonStyle(.secondaryPill)
+        }
     }
 
     private var openSettings: some View {
         Button("Open Settings") {
             if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
         }
-        .buttonStyle(SecondaryPillStyle())
+        .buttonStyle(.secondaryPill)
     }
 }
 

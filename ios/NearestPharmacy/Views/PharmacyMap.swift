@@ -2,21 +2,19 @@ import MapKit
 import SwiftUI
 
 struct PharmacyMap: View {
-    private struct Content: Equatable {
-        let pharmacies: [Pharmacy]
-        let selectedID: Pharmacy.ID?
-        let listSelectionCount: Int
-    }
-
     let model: AppModel
+    let origin: Origin
+    let pharmacies: [Pharmacy]
 
     @State private var position: MapCameraPosition
     @Namespace private var scope
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(model: AppModel) {
+    init(model: AppModel, origin: Origin, pharmacies: [Pharmacy]) {
         self.model = model
-        _position = State(initialValue: .fitting(model.origin, model.pharmacies))
+        self.origin = origin
+        self.pharmacies = pharmacies
+        _position = State(initialValue: .fitting(origin, pharmacies))
     }
 
     var body: some View {
@@ -24,46 +22,26 @@ struct PharmacyMap: View {
             .ignoresSafeArea(edges: .horizontal)
             .overlay(alignment: .topTrailing) { controls }
             .mapScope(scope)
-            // One handler for all, so the automatic selection that comes with new results
-            // doesn't replace the view of all of them.
-            .onChange(of: content) { old, new in
-                if new.pharmacies != old.pharmacies {
-                    position = .fitting(model.origin, new.pharmacies)
-                } else if let selected = new.pharmacies.first(where: { $0.id == new.selectedID }) {
-                    move(to: .region(around: selected))
-                }
-            }
-    }
-
-    private var content: Content {
-        Content(
-            pharmacies: model.pharmacies,
-            selectedID: model.selectedID,
-            listSelectionCount: model.listSelectionCount
-        )
+            .onChange(of: model.selectedID) { showSelected() }
+            .onChange(of: model.listSelectionCount) { showSelected() }
     }
 
     private var map: some View {
         @Bindable var model = model
 
         return Map(position: $position, selection: $model.selectedID, scope: scope) {
-            if let origin = model.origin {
-                Annotation(
-                    origin.source == .gps ? "Your location" : origin.label,
-                    coordinate: origin.coordinate.clLocationCoordinate
-                ) {
-                    OriginDot()
-                }
+            Annotation(origin.placeName ?? "Your location", coordinate: origin.coordinate.clLocationCoordinate) {
+                OriginDot()
             }
-            ForEach(model.pharmacies) { pharmacy in
-                let isNearest = pharmacy.id == model.nearest?.id
-                // The symbol differs too: in dark mode both tints are the same.
+            ForEach(pharmacies) { pharmacy in
+                let isNearest = pharmacy.id == pharmacies.first?.id
+                // The symbol differs too, so color isn't the only difference.
                 Marker(
                     pharmacy.name,
                     systemImage: isNearest ? "cross.case.fill" : "cross.fill",
                     coordinate: pharmacy.coordinate.clLocationCoordinate
                 )
-                .tint(isNearest ? Theme.action : Theme.teal)
+                .tint(isNearest ? Theme.nearestPin : Theme.teal)
                 .tag(pharmacy.id)
             }
         }
@@ -78,7 +56,7 @@ struct PharmacyMap: View {
     private var controls: some View {
         VStack(spacing: 8) {
             Button {
-                move(to: .fitting(model.origin, model.pharmacies))
+                move(to: .fitting(origin, pharmacies))
             } label: {
                 Image(systemName: "scope")
                     .font(.body.weight(.semibold))
@@ -94,6 +72,15 @@ struct PharmacyMap: View {
         .padding(12)
     }
 
+    private func showSelected() {
+        guard let selected = pharmacies.first(where: { $0.id == model.selectedID }) else { return }
+        move(to: .region(MKCoordinateRegion(
+            center: selected.coordinate.clLocationCoordinate,
+            latitudinalMeters: 800,
+            longitudinalMeters: 800
+        )))
+    }
+
     private func move(to newPosition: MapCameraPosition) {
         withAnimation(reduceMotion ? nil : .default) {
             position = newPosition
@@ -104,8 +91,8 @@ struct PharmacyMap: View {
 private struct OriginDot: View {
     var body: some View {
         Circle()
-            .fill(Theme.action)
-            .stroke(.white, lineWidth: 3)
+            .fill(Theme.originFill)
+            .stroke(Theme.originRing, lineWidth: 3)
             .frame(width: 18, height: 18)
             .shadow(radius: 2)
     }
@@ -113,35 +100,23 @@ private struct OriginDot: View {
 
 private extension MapCameraPosition {
     /// The origin and the closest pharmacies, with some room around them.
-    static func fitting(_ origin: Origin?, _ pharmacies: [Pharmacy]) -> MapCameraPosition {
-        let coordinates = [origin?.coordinate].compactMap(\.self) + pharmacies.prefix(5).map(\.coordinate)
-        let latitudes = coordinates.map(\.latitude)
-        let longitudes = coordinates.map(\.longitude)
-        guard let south = latitudes.min(), let top = latitudes.max(),
-              let west = longitudes.min(), let east = longitudes.max(),
-              // Wider than half the globe means the points straddle the antimeridian.
-              east - west <= 180
-        else { return .automatic }
+    static func fitting(_ origin: Origin, _ pharmacies: [Pharmacy]) -> MapCameraPosition {
+        let coordinates = [origin.coordinate] + pharmacies.prefix(5).map(\.coordinate)
+        var rect = coordinates.reduce(MKMapRect.null) { rect, coordinate in
+            rect.union(MKMapRect(origin: MKMapPoint(coordinate.clLocationCoordinate), size: MKMapSize()))
+        }
+        // Wider than half the globe means the points straddle the antimeridian.
+        guard rect.width <= MKMapSize.world.width / 2 else { return .automatic }
 
         // Pins stand above their point, so the northernmost one needs headroom.
-        let north = top + (top - south) * 0.35
-        let center = CLLocationCoordinate2D(latitude: (south + north) / 2, longitude: (west + east) / 2)
-        let smallest = MKCoordinateRegion(center: center, latitudinalMeters: 500, longitudinalMeters: 500).span
-        let padding = 1.3
-        return .region(MKCoordinateRegion(
-            center: center,
-            span: MKCoordinateSpan(
-                latitudeDelta: max((north - south) * padding, smallest.latitudeDelta),
-                longitudeDelta: max((east - west) * padding, smallest.longitudeDelta)
-            )
-        ))
-    }
+        let headroom = rect.height * 0.35
+        rect.origin.y -= headroom
+        rect.size.height += headroom
 
-    static func region(around pharmacy: Pharmacy) -> MapCameraPosition {
-        .region(MKCoordinateRegion(
-            center: pharmacy.coordinate.clLocationCoordinate,
-            latitudinalMeters: 800,
-            longitudinalMeters: 800
+        let smallest = 500 * MKMapPointsPerMeterAtLatitude(origin.coordinate.latitude)
+        return .rect(rect.insetBy(
+            dx: -max(rect.width * 0.15, (smallest - rect.width) / 2),
+            dy: -max(rect.height * 0.15, (smallest - rect.height) / 2)
         ))
     }
 }

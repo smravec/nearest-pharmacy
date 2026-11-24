@@ -6,7 +6,6 @@ struct RootView: View {
 
     @State private var isSearchPresented = false
     @State private var isAboutPresented = false
-    @AccessibilityFocusState private var nearestFocused: Bool
 
     var body: some View {
         @Bindable var model = model
@@ -21,25 +20,10 @@ struct RootView: View {
         }
         .tint(Theme.action)
         .mapItemDetailSheet(item: $model.detailItem, displaysMap: false)
-        .sheet(isPresented: $isSearchPresented) { LocationSearchView(model: model) }
+        .sheet(isPresented: $isSearchPresented) {
+            LocationSearchView(useLocation: searchFromLocation, select: search)
+        }
         .sheet(isPresented: $isAboutPresented) { AboutView() }
-        // Not keyed on `.loading`: the state doesn't change when a search was already loading,
-        // and a location arriving late must not close the sheet while someone types.
-        .onChange(of: model.resolvedPlaceCount) { isSearchPresented = false }
-        // Not `onDismiss`: that waits for the animation, during which a place could still resolve.
-        .onChange(of: isSearchPresented) { _, isPresented in
-            if !isPresented { model.cancelPlaceLookup() }
-        }
-        .onChange(of: model.announcement) { _, announcement in
-            if let announcement { post(announcement) }
-        }
-        .task(id: model.nearest?.id) {
-            guard model.nearest != nil else { return }
-            // VoiceOver ignores a focus request made while the screen is still changing.
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled else { return }
-            nearestFocused = true
-        }
     }
 
     @ViewBuilder
@@ -47,8 +31,8 @@ struct RootView: View {
         switch model.state {
         case .idle:
             HeroView(useLocation: model.useCurrentLocation, search: presentSearch)
-        case .ready:
-            ResultsView(model: model, nearestFocus: $nearestFocused)
+        case .ready(let origin, let pharmacies):
+            ResultsView(model: model, origin: origin, pharmacies: pharmacies, search: presentSearch)
         case .locating, .denied, .loading, .empty, .failed:
             SearchStatusView(model: model, search: presentSearch)
         }
@@ -84,10 +68,16 @@ struct RootView: View {
         isAboutPresented = true
     }
 
-    private func post(_ announcement: Announcement) {
-        var text = AttributedString(announcement.text)
-        text.accessibilitySpeechAnnouncementPriority = .high
-        AccessibilityNotification.Announcement(text).post()
+    private func searchFromLocation() {
+        isSearchPresented = false
+        model.useCurrentLocation()
+    }
+
+    private func search(from origin: Origin) {
+        // A place may still resolve while the closed sheet animates away.
+        guard isSearchPresented else { return }
+        isSearchPresented = false
+        model.search(from: origin)
     }
 }
 
@@ -99,7 +89,9 @@ private struct ResultsView: View {
     }
 
     let model: AppModel
-    let nearestFocus: AccessibilityFocusState<Bool>.Binding
+    let origin: Origin
+    let pharmacies: [Pharmacy]
+    let search: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -116,10 +108,10 @@ private struct ResultsView: View {
                 ForEach(isWide ? [Pane.panel, .map] : [.map, .panel], id: \.self) { pane in
                     switch pane {
                     case .map:
-                        PharmacyMap(model: model)
+                        PharmacyMap(model: model, origin: origin, pharmacies: pharmacies)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     case .panel:
-                        ResultsPanel(model: model, nearestFocus: nearestFocus)
+                        ResultsPanel(model: model, origin: origin, pharmacies: pharmacies, search: search)
                             // VoiceOver reads the results before the map's pins.
                             .accessibilitySortPriority(1)
                             .frame(
@@ -141,24 +133,31 @@ private struct ResultsView: View {
 
 private struct ResultsPanel: View {
     let model: AppModel
-    let nearestFocus: AccessibilityFocusState<Bool>.Binding
+    let origin: Origin
+    let pharmacies: [Pharmacy]
+    let search: () -> Void
 
+    @AccessibilityFocusState private var nearestFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    if let origin = model.origin {
-                        OriginLine(origin: origin)
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    OriginLine(origin: origin, search: search)
+                    if let nearest = pharmacies.first {
+                        NearestCard(
+                            model: model,
+                            pharmacy: nearest,
+                            isApproximate: origin.isApproximate,
+                            focus: $nearestFocused
+                        )
+                        .id(nearest.id)
                     }
-                    if let nearest = model.nearest {
-                        NearestCard(model: model, pharmacy: nearest, focus: nearestFocus)
-                            .id(nearest.id)
-                    }
-                    PharmacyList(model: model)
+                    PharmacyList(model: model, others: Array(pharmacies.dropFirst()))
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
             .background(Theme.ground)
             .safeAreaInset(edge: .bottom, spacing: 0) { PinnedAttribution() }
@@ -168,6 +167,12 @@ private struct ResultsPanel: View {
                     proxy.scrollTo(selectedID, anchor: .center)
                 }
             }
+        }
+        .task {
+            // VoiceOver ignores a focus request made while the screen is still changing.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            nearestFocused = true
         }
     }
 }
@@ -190,6 +195,7 @@ private struct PinnedAttribution: View {
 
 private struct OriginLine: View {
     let origin: Origin
+    let search: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -198,14 +204,10 @@ private struct OriginLine: View {
             if origin.isApproximate {
                 Label("Approximate location, so distances are rough", systemImage: "location.slash")
                     .foregroundStyle(Theme.amber)
+                Button("Search for a place", action: search)
+                    .buttonStyle(.textLink)
             }
         }
         .font(.subheadline)
-    }
-}
-
-extension Origin {
-    var labelInSentence: String {
-        source == .gps ? "your location" : label
     }
 }

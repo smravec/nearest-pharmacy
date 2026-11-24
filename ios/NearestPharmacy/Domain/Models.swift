@@ -1,5 +1,4 @@
-import Foundation
-import MapKit
+import CoreLocation
 
 struct Coordinate: Hashable, Sendable {
     let latitude: Double
@@ -8,28 +7,50 @@ struct Coordinate: Hashable, Sendable {
     var clLocationCoordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
+
+    /// Straight-line distance.
+    func meters(to other: Coordinate) -> Double {
+        CLLocation(latitude: latitude, longitude: longitude)
+            .distance(from: CLLocation(latitude: other.latitude, longitude: other.longitude))
+    }
+
+    /// "60.1719,24.9414", as map links expect it.
+    var queryValue: String {
+        "\(Self.degrees(latitude, decimals: 6)),\(Self.degrees(longitude, decimals: 6))"
+    }
+
+    static func degrees(_ value: Double, decimals: Int) -> String {
+        String(format: "%.\(decimals)f", locale: Locale(identifier: "en_US_POSIX"), value)
+    }
+}
+
+extension Coordinate {
+    init(_ coordinate: CLLocationCoordinate2D) {
+        self.init(latitude: coordinate.latitude, longitude: coordinate.longitude)
+    }
 }
 
 /// The point distances are measured from.
 struct Origin: Equatable, Sendable {
-    enum Source: Sendable {
-        case gps
-        case search
-    }
+    static let goodAccuracyMeters = 100.0
 
     let coordinate: Coordinate
-    let label: String
-    let source: Source
+    /// Nil for the device's own position.
+    var placeName: String?
     var accuracyMeters: Double?
 
-    /// True when iOS only shared an approximate position, so distances are rough.
+    /// Too rough to say which pharmacy is nearest.
     var isApproximate: Bool {
-        guard let accuracyMeters else { return false }
-        return accuracyMeters > 500
+        (accuracyMeters ?? 0) > Self.goodAccuracyMeters
     }
+
+    var labelInSentence: String { placeName ?? "your location" }
 }
 
 struct Pharmacy: Identifiable, Hashable, Sendable {
+    private static let walkableMeters = 3000.0
+    private static let walkingMetersPerSecond = 5000.0 / 3600
+
     /// OpenStreetMap identifier, for example `node/668244336`.
     let id: String
     let name: String
@@ -37,7 +58,25 @@ struct Pharmacy: Identifiable, Hashable, Sendable {
     let address: String?
     /// Straight-line distance from the origin.
     let distanceMeters: Double
-    let walkMinutes: Int
+
+    var isWalkable: Bool { distanceMeters <= Self.walkableMeters }
+
+    /// Nil when it is too far to suggest walking.
+    var estimatedWalk: WalkingTime? {
+        guard isWalkable else { return nil }
+        return WalkingTime(seconds: distanceMeters / Self.walkingMetersPerSecond, isEstimate: true)
+    }
+}
+
+struct WalkingTime: Equatable, Sendable {
+    let minutes: Int
+    /// From the straight line, not from a route.
+    let isEstimate: Bool
+
+    init(seconds: TimeInterval, isEstimate: Bool) {
+        minutes = max(1, Int((seconds / 60).rounded(.up)))
+        self.isEstimate = isEstimate
+    }
 }
 
 struct PharmacyResults: Equatable, Sendable {
@@ -51,60 +90,20 @@ enum SearchState: Equatable, Sendable {
     case locating
     /// Location can't be used, so the person has to search for a place.
     case denied
-    case loading
-    case ready(PharmacyResults)
+    case loading(Origin)
+    case ready(Origin, [Pharmacy])
     case empty(radiusKilometers: Int)
-    case failed(SearchFailure)
+    /// The origin is nil when finding it is what failed.
+    case failed(SearchFailure, Origin?)
 }
 
 enum SearchFailure: Error, Equatable, Sendable {
     case offline
     case serviceUnavailable
     case locationUnavailable
-    case placeNotFound
 }
 
 enum LocationError: Error, Equatable, Sendable {
     case denied
     case unavailable
-}
-
-struct PlaceSuggestion: Identifiable, Hashable, Sendable {
-    let id: String
-    let title: String
-    let subtitle: String
-
-    /// The title alone may name several places.
-    var fullName: String {
-        [title, subtitle].filter { !$0.isEmpty }.joined(separator: ", ")
-    }
-}
-
-protocol PharmacyFinding: Sendable {
-    /// Throws `SearchFailure` or `CancellationError`.
-    /// Returns an empty list only when the service answered and found nothing in the widest radius.
-    func nearest(to origin: Coordinate) async throws -> PharmacyResults
-}
-
-@MainActor
-protocol LocationProviding: AnyObject {
-    /// Asks for permission if needed. Throws `LocationError` or `CancellationError`.
-    func current() async throws -> Origin
-}
-
-@MainActor
-protocol PlaceSearching: AnyObject {
-    /// Called whenever the suggestions change.
-    var onSuggestions: (([PlaceSuggestion]) -> Void)? { get set }
-    func update(query: String)
-    /// Throws `SearchFailure` or `CancellationError`.
-    func resolve(_ suggestion: PlaceSuggestion) async throws -> Origin
-    func resolve(text: String) async throws -> Origin
-}
-
-@MainActor
-protocol PlaceDetailing: AnyObject {
-    /// The Apple Maps place for this pharmacy, or nil when none matches confidently.
-    /// Throws `SearchFailure` or `CancellationError`.
-    func mapItem(for pharmacy: Pharmacy) async throws -> MKMapItem?
 }
