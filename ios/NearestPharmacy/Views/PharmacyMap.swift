@@ -83,6 +83,7 @@ struct PharmacyMap: View {
                 Image(systemName: "scope")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Theme.action)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .frame(width: Theme.minimumTarget, height: Theme.minimumTarget)
                     .background(.regularMaterial, in: .circle)
                     .contentShape(.circle)
@@ -116,12 +117,14 @@ private extension MapCameraPosition {
         let coordinates = [origin?.coordinate].compactMap(\.self) + pharmacies.prefix(5).map(\.coordinate)
         let latitudes = coordinates.map(\.latitude)
         let longitudes = coordinates.map(\.longitude)
-        guard let south = latitudes.min(), let north = latitudes.max(),
+        guard let south = latitudes.min(), let top = latitudes.max(),
               let west = longitudes.min(), let east = longitudes.max(),
               // Wider than half the globe means the points straddle the antimeridian.
               east - west <= 180
         else { return .automatic }
 
+        // Pins stand above their point, so the northernmost one needs headroom.
+        let north = top + (top - south) * 0.35
         let center = CLLocationCoordinate2D(latitude: (south + north) / 2, longitude: (west + east) / 2)
         let smallest = MKCoordinateRegion(center: center, latitudinalMeters: 500, longitudinalMeters: 500).span
         let padding = 1.3
