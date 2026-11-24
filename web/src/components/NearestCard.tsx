@@ -106,6 +106,9 @@ export function NearestCard({
         </button>
       )}
       <PharmacyFacts pharmacy={pharmacy} />
+      <p className="np-meta">
+        OpenStreetMap may list pharmacies that have closed down. Check before you go.
+      </p>
       <PharmacyLinks origin={origin} pharmacy={pharmacy} primary />
     </article>
   )

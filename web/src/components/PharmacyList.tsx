@@ -81,10 +81,7 @@ export function PharmacyList({
         </ol>
       </div>
       <div className="np-notes">
-        <p>
-          Opening hours come from OpenStreetMap and may be wrong, especially on public holidays. Call ahead
-          if it matters.
-        </p>
+        <p>Opening hours may be wrong, especially on public holidays.</p>
         <p>Distances are straight lines. Walking times assume 5 km/h and can be longer on real streets.</p>
       </div>
     </section>
