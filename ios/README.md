@@ -3,6 +3,8 @@
 A SwiftUI app that finds the pharmacy closest to you. It is an independent demo with no dependencies,
 API keys or accounts.
 
+![The nearest pharmacy, its hours in Apple's place card, and dark mode](../docs/ios.jpg)
+
 ## Run it
 
 Open `NearestPharmacy.xcodeproj` in Xcode (developed with 27.2) and run it in a simulator with iOS 18 or

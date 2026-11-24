@@ -4,6 +4,8 @@ Finds the pharmacy closest to you. Web app: **https://nearest-pharmacy.vercel.ap
 
 ![The web app showing the nearest pharmacy, a map and a list](docs/web.jpg)
 
+![The iOS app: the nearest pharmacy, its hours in Apple's place card, and dark mode](docs/ios.jpg)
+
 - [`web/`](web/): the web app (Vite, React, TypeScript)
 - [`ios/`](ios/): the iOS app (SwiftUI, MapKit)
 
