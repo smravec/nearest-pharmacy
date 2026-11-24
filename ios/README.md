@@ -5,8 +5,8 @@ API keys or accounts.
 
 ## Run it
 
-Open `NearestPharmacy.xcodeproj` in Xcode 16 or later and run on an iOS 18+ simulator. For a device,
-choose your own team under Signing & Capabilities.
+Open `NearestPharmacy.xcodeproj` in Xcode (developed with 27.2) and run it in a simulator with iOS 18 or
+later. For a device, choose your own team under Signing & Capabilities.
 
 To set a position in the simulator: Features › Location › Custom Location, for example Helsinki
 (60.1841, 24.9497).
@@ -25,8 +25,8 @@ To set a position in the simulator: Features › Location › Custom Location, f
 
 I compared both at ten public points on 2026-11-24. MapKit's pharmacy category returned a vape shop in
 Helsinki and a supplement store in Rovaniemi, and in the Kallio district it missed the nearest
-pharmacy. OpenStreetMap returned real pharmacies near nine of the ten points within 5 km, and 15 km was
-enough for the tenth. So OpenStreetMap decides what is nearest, and Apple Maps only adds details.
+pharmacy. OpenStreetMap had pharmacies within 5 km of nine of the ten points, and 15 km was enough for the
+tenth. So OpenStreetMap decides what is nearest, and Apple Maps only adds details.
 
 ## Code
 
