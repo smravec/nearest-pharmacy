@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { HOURS_UNAVAILABLE, loadOpeningHours } from '../domain/openingHours'
+import { loadOpeningHours, unevaluatedHours } from '../domain/openingHours'
 import type { EvaluateHours, OpenStatus } from '../domain/openingHours'
 import type { Pharmacy } from '../domain/types'
 
@@ -46,7 +46,7 @@ export function useOpenStates(pharmacies: Pharmacy[]): ReadonlyMap<string, OpenS
     if (snapshot === null) return states
     for (const pharmacy of pharmacies) {
       const status =
-        snapshot === 'failed' ? HOURS_UNAVAILABLE : snapshot.evaluate(pharmacy, snapshot.now)
+        snapshot === 'failed' ? unevaluatedHours(pharmacy) : snapshot.evaluate(pharmacy, snapshot.now)
       states.set(pharmacy.id, status)
     }
     return states

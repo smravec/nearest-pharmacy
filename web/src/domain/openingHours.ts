@@ -8,7 +8,12 @@ export interface OpenStatus extends OpenState {
 
 export type EvaluateHours = (p: Pharmacy, now: Date) => OpenStatus
 
-export const HOURS_UNAVAILABLE: OpenStatus = { status: 'unknown', label: 'Hours unavailable' }
+/** For hours we can't evaluate: the raw value, if there is one. People can usually read it. */
+export function unevaluatedHours({ openingHours }: Pharmacy): OpenStatus {
+  return openingHours
+    ? { status: 'unknown', label: 'Listed hours', detail: openingHours }
+    : { status: 'unknown', label: 'Hours unavailable' }
+}
 
 /**
  * Holidays need a country and sun times need coordinates. Without them the library throws or,
@@ -110,10 +115,10 @@ function formatChange(status: 'open' | 'closed', wall: Date, next: Date): string
   return `${verb} ${next.getDate()} ${MONTHS[next.getMonth()]} ${time}`
 }
 
-function describe(hours: OpeningHours, zone: string, now: Date): OpenStatus {
+function describe(hours: OpeningHours, zone: string, now: Date): OpenStatus | undefined {
   const wall = toWall(now, zone)
   const status = stateAt(hours, wall)
-  if (status === 'unknown') return HOURS_UNAVAILABLE
+  if (status === 'unknown') return undefined
 
   const label = status === 'open' ? 'Open' : 'Closed'
   const next = nextStateChange(hours, wall)
@@ -160,12 +165,13 @@ async function load(): Promise<EvaluateHours> {
 
   return (pharmacy, now) => {
     const { openingHours } = pharmacy
-    if (!openingHours || NEEDS_LOCATION.test(openingHours)) return HOURS_UNAVAILABLE
+    const unevaluated = unevaluatedHours(pharmacy)
+    if (!openingHours || NEEDS_LOCATION.test(openingHours)) return unevaluated
     try {
       const hours = parse(openingHours)
-      return hours ? describe(hours, zoneOf(pharmacy), now) : HOURS_UNAVAILABLE
+      return (hours && describe(hours, zoneOf(pharmacy), now)) ?? unevaluated
     } catch {
-      return HOURS_UNAVAILABLE
+      return unevaluated
     }
   }
 }
