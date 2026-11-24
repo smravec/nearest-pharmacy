@@ -1,0 +1,108 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Clears the sticky header. */
+  scroll-padding-top: 76px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--body);
+  font: 400 16px/1.5 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p,
+ol,
+ul {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+h1,
+h2 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+svg {
+  flex: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+#main:focus {
+  outline: none;
+}
+
+.np-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.np-skip {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  z-index: 20;
+  padding: 10px 18px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+.np-skip:not(:focus) {
+  transform: translateY(-80px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*='np-'],
+  [class*='np-']::before,
+  [class*='np-']::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
