@@ -57,7 +57,8 @@
     top: 76px;
     grid-area: map;
     align-self: start;
-    height: calc(100dvh - 100px);
+    /* Fits below the compact hero, so the whole map and its attribution show before scrolling. */
+    height: calc(100dvh - 237px);
     min-height: 480px;
   }
 }
