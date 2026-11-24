@@ -27,7 +27,6 @@ export function createPharmacyPin(onClick: () => void): HTMLElement {
 
   const tag = document.createElement('span')
   tag.className = 'pmap-pin__tag'
-  tag.textContent = 'Nearest'
 
   root.append(svg, tag)
   return root
@@ -35,6 +34,9 @@ export function createPharmacyPin(onClick: () => void): HTMLElement {
 
 export function updatePharmacyPin(root: HTMLElement, name: string, nearest: boolean, selected: boolean) {
   root.title = name
+  const tag = root.querySelector('.pmap-pin__tag')
+  // The title has no tooltip on touch screens, so the tag names the selected pharmacy.
+  if (tag) tag.textContent = nearest ? 'Nearest' : name
   root.classList.toggle('pmap-pin--nearest', nearest)
   root.classList.toggle('pmap-pin--selected', selected)
 }

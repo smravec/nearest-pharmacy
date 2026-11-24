@@ -52,7 +52,7 @@ export function announcement(state: SearchState, geocode: GeocodeState, slow: bo
   const message = stateMessage(state, slow)
   const error = geocodeErrorText(geocode)
   if (!error) return message
-  // Otherwise results that arrive after a failed address lookup would never be announced.
-  const finished = state.status === 'ready' || state.status === 'empty' || state.status === 'error'
-  return finished ? `${error} ${message}` : error
+  // Otherwise an outcome that arrives after a failed address lookup would never be announced.
+  const waiting = state.status === 'idle' || state.status === 'locating' || state.status === 'loading'
+  return waiting ? error : `${error} ${message}`
 }
