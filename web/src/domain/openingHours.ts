@@ -8,11 +8,11 @@ export interface OpenStatus extends OpenState {
 
 export type EvaluateHours = (p: Pharmacy, now: Date) => OpenStatus
 
-/** For hours we can't evaluate: the raw value, if there is one. People can usually read it. */
+/** For hours we can't evaluate: the listed value, if there is one, with its holiday codes spelled out. */
 export function unevaluatedHours({ openingHours }: Pharmacy): OpenStatus {
-  return openingHours
-    ? { status: 'unknown', label: 'Listed hours', detail: openingHours }
-    : { status: 'unknown', label: 'Hours unavailable' }
+  if (!openingHours) return { status: 'unknown', label: 'Hours unavailable' }
+  const detail = openingHours.replace(/\bPH\b/g, 'public holidays').replace(/\bSH\b/g, 'school holidays')
+  return { status: 'unknown', label: 'Listed hours', detail }
 }
 
 /**

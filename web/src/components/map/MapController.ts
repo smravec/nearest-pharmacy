@@ -93,7 +93,8 @@ export class MapController {
     })
     this.deadline = window.setTimeout(() => {
       this.deadlinePassed = true
-      if (!this.ready && this.sawError) this.options.onFail()
+      // A style that hasn't arrived by now is not coming: the host isn't answering.
+      if (!this.ready && (this.sawError || !this.styleLoaded)) this.options.onFail()
     }, READY_TIMEOUT_MS)
   }
 

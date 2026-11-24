@@ -24,10 +24,10 @@ export function roundCoordinate(degrees: number): string {
   return degrees.toFixed(4)
 }
 
-/** A position from two untrusted values, or undefined unless both are finite numbers. */
+/** A position from two untrusted values, or undefined unless both are numbers on the globe. */
 export function toLatLng(lat: unknown, lng: unknown): LatLng | undefined {
   if (typeof lat !== 'number' || typeof lng !== 'number') return undefined
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : undefined
 }
 
 interface AddressParts {

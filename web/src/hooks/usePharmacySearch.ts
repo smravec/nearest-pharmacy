@@ -18,6 +18,7 @@ export function usePharmacySearch(): PharmacySearch {
   const [search, setSearch] = useState<SearchState>({ status: 'idle' })
   const lookupRef = useRef<AbortController | null>(null)
   const searchRef = useRef<AbortController | null>(null)
+  const queryRef = useRef('')
 
   useEffect(
     () => () => {
@@ -73,6 +74,9 @@ export function usePharmacySearch(): PharmacySearch {
   async function searchAddress(input: string) {
     const query = input.trim()
     if (!query) return
+    // Submitting the address that is being looked up again would only abort it and ask once more.
+    if (lookup.status === 'searching' && query === queryRef.current) return
+    queryRef.current = query
     const signal = startLookup('searching')
     try {
       const origin = await geocode(query, signal)

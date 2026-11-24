@@ -13,15 +13,26 @@ const tagsById = new Map<string, OsmTags>()
 let nextSlot = 0
 
 async function waitForSlot(signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted()
   const now = performance.now()
   const slot = Math.max(now, nextSlot)
   nextSlot = slot + MIN_INTERVAL_MS
-  await sleep(slot - now, signal)
+  // A wait that is aborted gives its slot back, at once, so that the request replacing it gets it.
+  const giveBack = () => {
+    if (nextSlot === slot + MIN_INTERVAL_MS) nextSlot = slot
+  }
+  signal.addEventListener('abort', giveBack)
+  try {
+    await sleep(slot - now, signal)
+  } finally {
+    signal.removeEventListener('abort', giveBack)
+  }
 }
 
-function parseCoordinate(value: unknown): number {
+function parseCoordinate(value: unknown, limit: 90 | 180): number {
   const coordinate = typeof value === 'string' ? Number.parseFloat(value) : NaN
-  if (!Number.isFinite(coordinate)) throw new ServiceError('Unexpected Nominatim response')
+  // False for NaN too.
+  if (!(Math.abs(coordinate) <= limit)) throw new ServiceError('Unexpected Nominatim response')
   return coordinate
 }
 
@@ -41,7 +52,7 @@ function formatLabel(place: Record<string, unknown>, query: string): string {
 function parsePlace(place: unknown, query: string): Origin {
   if (!isRecord(place)) throw new ServiceError('Unexpected Nominatim response')
   return {
-    position: { lat: parseCoordinate(place.lat), lng: parseCoordinate(place.lon) },
+    position: { lat: parseCoordinate(place.lat, 90), lng: parseCoordinate(place.lon, 180) },
     label: formatLabel(place, query),
     source: 'search',
   }
