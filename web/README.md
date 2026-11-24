@@ -40,24 +40,27 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
 
 ## Decisions
 
-- **Search on submit only.** Nominatim's usage policy forbids autocomplete. Requests are limited to
+- **Search on submit only.** Nominatim's usage policy forbids autocomplete. Submitting
+  the same address twice asks once. Requests are limited to
   one per second in each tab and cached for the session. The policy counts all users together, so a
   real product would need its own Nominatim.
 - **Unknown is not closed.** Missing hours show "Hours unavailable". Hours that can't be evaluated are
-  shown as listed: unparseable ones, public or school holiday rules (they depend on the country) and
+  shown as listed, with PH and SH spelled out as public and school holidays: unparseable ones, public or school holiday rules (they depend on the country) and
   sunrise or sunset. Other hours ignore holidays, and the page says so.
 - **The pharmacy's time zone.** Hours are evaluated where the pharmacy is, so searching another
   city gives the right answer.
 - **OpenStreetMap data is untrusted.** It is rendered as text only, and links must be http(s).
 - **Lazy loading.** The map and the opening hours parser are separate chunks, so the first view
   doesn't wait for them.
-- **The map is optional.** Without WebGL or tiles, the list still has every pharmacy.
+- **The map is optional.** Without WebGL or tiles, the list still has every pharmacy. If the map's
+  code or the tile host doesn't answer (the host gets 10 seconds), the map says so and offers Try again.
 
 ## Accessibility
 
 - A live region announces the nearest result, and focus moves to it after a search. Someone who
   moved on while waiting keeps their place.
 - The list is the full text equivalent of the map. Status is never shown by color alone.
+- Text sizes follow the browser's default font size.
 - Light and dark follow the system, and reduced motion is respected.
 - Everything works with native buttons, links and one form, so there are no custom keys to learn.
 

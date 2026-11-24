@@ -72,8 +72,11 @@ interface NearestCardProps {
   open: OpenStatus | undefined
   /** Set when the nearest is closed and another one is open. */
   nearestOpen: Pharmacy | undefined
+  /** Opening hours and phone numbers couldn't be loaded, for any of the pharmacies. */
+  detailsMissing: boolean | undefined
   headingRef: Ref<HTMLHeadingElement>
   onShow(id: string): void
+  onRetry(): void
 }
 
 export function NearestCard({
@@ -81,8 +84,10 @@ export function NearestCard({
   pharmacy,
   open,
   nearestOpen,
+  detailsMissing,
   headingRef,
   onShow,
+  onRetry,
 }: NearestCardProps) {
   return (
     <article className="np-nearest" aria-labelledby="np-nearest-name">
@@ -101,15 +106,32 @@ export function NearestCard({
         <OpenBadge open={open} />
       </p>
       {nearestOpen && (
-        <button type="button" className="np-nearest__open" onClick={() => onShow(nearestOpen.id)}>
-          Nearest open: {nearestOpen.name}, {formatDistance(nearestOpen.distanceM)}
+        <button
+          type="button"
+          className="np-btn np-btn--primary np-nearest__open"
+          onClick={() => onShow(nearestOpen.id)}
+        >
+          {/* No break inside the distance. */}
+          Nearest open: {nearestOpen.name}, {formatDistance(nearestOpen.distanceM).replace(' ', '\u00A0')}
         </button>
       )}
-      <PharmacyFacts pharmacy={pharmacy} />
       <p className="np-meta">
         OpenStreetMap may list pharmacies that have closed down. Check before you go.
       </p>
-      <PharmacyLinks origin={origin} pharmacy={pharmacy} primary />
+      {/* The main action, unless a closed pharmacy has an open alternative. */}
+      <PharmacyLinks origin={origin} pharmacy={pharmacy} primary={!nearestOpen} />
+      <PharmacyFacts pharmacy={pharmacy} />
+      {detailsMissing && (
+        <div className="np-nearest__warning">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 3.5 21.5 20h-19zM12 10v4.5M12 17v.5" />
+          </svg>
+          <p>Opening hours and phone numbers couldn't be loaded.</p>
+          <button type="button" className="np-btn np-btn--secondary" onClick={onRetry}>
+            Try again<span className="np-sr"> to load opening hours and phone numbers</span>
+          </button>
+        </div>
+      )}
     </article>
   )
 }

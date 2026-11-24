@@ -4,17 +4,16 @@
   padding: 12px 16px 32px;
 }
 
-.np-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
-  margin-top: 16px;
-}
-
+/* On a phone the gaps match the gutter, so the nearest pharmacy's actions fit the first screen. */
+.np-main,
 .np-results {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
+  gap: 16px;
+}
+
+.np-main {
+  margin-top: 16px;
 }
 
 .np-results > * {
@@ -28,6 +27,11 @@
 @media (min-width: 768px) {
   .np-shell {
     padding-inline: 24px;
+  }
+
+  .np-main,
+  .np-results {
+    gap: 24px;
   }
 
   .np-map {

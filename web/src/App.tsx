@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { Attribution } from './components/Attribution'
@@ -16,8 +16,6 @@ import { usePharmacySearch } from './hooks/usePharmacySearch'
 
 /** Where layout.css puts the list next to the map. */
 const TWO_COLUMNS = '(min-width: 960px)'
-
-const PharmacyMap = lazy(() => import('./components/PharmacyMap'))
 
 interface ResultsProps {
   origin: Origin
@@ -63,25 +61,19 @@ function Results({ origin, result, headingRef, onRetry }: ResultsProps) {
           pharmacy={nearest}
           open={openStates.get(nearest.id)}
           nearestOpen={nearestOpen}
+          detailsMissing={result.detailsMissing}
           headingRef={headingRef}
           onShow={handleShow}
+          onRetry={onRetry}
         />
       )}
       <section className="np-map">
         <MapBoundary
-          fallback={
-            <p className="np-map__message">The map couldn't load. The list has the same pharmacies.</p>
-          }
-        >
-          <Suspense fallback={<p className="np-map__message np-map__message--loading">Loading map…</p>}>
-            <PharmacyMap
-              origin={origin}
-              pharmacies={pharmacies}
-              selectedId={selectedId}
-              onSelect={handlePin}
-            />
-          </Suspense>
-        </MapBoundary>
+          origin={origin}
+          pharmacies={pharmacies}
+          selectedId={selectedId}
+          onSelect={handlePin}
+        />
       </section>
       <PharmacyList
         origin={origin}
@@ -90,7 +82,6 @@ function Results({ origin, result, headingRef, onRetry }: ResultsProps) {
         openStates={openStates}
         rowsRef={rowsRef}
         onSelect={setSelectedId}
-        onRetry={onRetry}
       />
     </div>
   )
@@ -151,7 +142,7 @@ export function App() {
           <Hero search={search}>
             <LocationSearch
               lookup={lookup}
-              showLocationError={search.status !== 'idle'}
+              hasSearch={search.status !== 'idle'}
               onEdit={handleEdit}
               onSearch={handleSearch}
               onLocate={handleLocate}

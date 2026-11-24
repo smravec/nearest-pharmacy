@@ -5,8 +5,8 @@ import { deniedCopy } from './StatusViews'
 
 interface LocationSearchProps {
   lookup: LookupState
-  /** The page shows a location failure itself while there is nothing else to show. */
-  showLocationError: boolean
+  /** With a search on the page, a location failure is shown here and locating is no longer the main action. */
+  hasSearch: boolean
   onEdit(): void
   onSearch(query: string): void
   onLocate(): void
@@ -29,7 +29,7 @@ export function lookupErrorText(lookup: LookupState): string {
 
 export function LocationSearch({
   lookup,
-  showLocationError,
+  hasSearch,
   onEdit,
   onSearch,
   onLocate,
@@ -38,15 +38,11 @@ export function LocationSearch({
   const inputRef = useRef<HTMLInputElement>(null)
   const locating = lookup.status === 'locating'
   const addressFailed = lookup.status === 'addressFailed'
-  const showError = addressFailed || (showLocationError && lookup.status === 'locationFailed')
+  const showError = addressFailed || (hasSearch && lookup.status === 'locationFailed')
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     setQuery(event.target.value)
     onEdit()
-  }
-
-  function handleLocate() {
-    if (!locating) onLocate()
   }
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
@@ -60,9 +56,8 @@ export function LocationSearch({
     <div className="np-search">
       <button
         type="button"
-        className="np-btn np-btn--primary"
-        aria-disabled={locating || undefined}
-        onClick={handleLocate}
+        className={hasSearch ? 'np-btn np-btn--secondary' : 'np-btn np-btn--primary'}
+        onClick={onLocate}
       >
         {locating ? 'Finding your location…' : 'Use my location'}
       </button>

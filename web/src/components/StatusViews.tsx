@@ -21,7 +21,7 @@ const DENIED_COPY: Record<LocationProblem, Copy> = {
   },
   timeout: {
     title: 'Finding your location took too long',
-    text: 'Try again, or search for an address above.',
+    text: 'Choose Use my location again, or search for an address above.',
   },
   unsupported: {
     title: "This browser can't share your location",

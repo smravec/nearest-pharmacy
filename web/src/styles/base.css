@@ -13,7 +13,7 @@ body {
   margin: 0;
   background: var(--ground);
   color: var(--body);
-  font: 400 16px/1.5 var(--font-body);
+  font: 400 1rem/1.5 var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -46,7 +46,7 @@ h1 {
 }
 
 h2 {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.25;
   letter-spacing: -0.02em;
 }

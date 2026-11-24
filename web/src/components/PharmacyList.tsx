@@ -11,7 +11,6 @@ interface PharmacyListProps {
   openStates: ReadonlyMap<string, OpenStatus>
   rowsRef: Ref<HTMLOListElement>
   onSelect(id: string | null): void
-  onRetry(): void
 }
 
 export function PharmacyList({
@@ -21,9 +20,8 @@ export function PharmacyList({
   openStates,
   rowsRef,
   onSelect,
-  onRetry,
 }: PharmacyListProps) {
-  const { pharmacies, radiusM, truncated, detailsMissing } = result
+  const { pharmacies, radiusM, truncated } = result
 
   return (
     <section className="np-results__list" aria-labelledby="np-list-title">
@@ -33,17 +31,6 @@ export function PharmacyList({
             ? `Nearest ${pharmacies.length} pharmacies`
             : `${pharmacies.length} ${pharmacies.length === 1 ? 'pharmacy' : 'pharmacies'} within ${formatRadius(radiusM)}`}
         </h2>
-        {detailsMissing && (
-          <div className="np-list__warning">
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-              <path d="M12 3.5 21.5 20h-19zM12 10v4.5M12 17v.5" />
-            </svg>
-            <p>Opening hours and phone numbers couldn't be loaded.</p>
-            <button type="button" className="np-btn np-btn--secondary" onClick={onRetry}>
-              Try again
-            </button>
-          </div>
-        )}
         <ol ref={rowsRef} className="np-list__rows">
           {pharmacies.map((pharmacy, index) => {
             const { id } = pharmacy
