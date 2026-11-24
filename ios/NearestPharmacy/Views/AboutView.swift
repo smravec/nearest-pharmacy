@@ -10,7 +10,7 @@ struct AboutView: View {
                     Text("This app is an independent demo. It isn't an official pharmacy or healthcare service.")
                 }
                 section("Data") {
-                    Text("Pharmacies come from OpenStreetMap, searched with Photon. They can be out of date. Place details come from Apple Maps, and Google Maps opens a search. Check with the pharmacy before you travel.")
+                    Text("Pharmacies come from OpenStreetMap, searched with Photon. They can be out of date. Place details come from Apple Maps. The Google Maps button opens a Google search for the pharmacy. Check with the pharmacy before you travel.")
                     AttributionView()
                         .font(.footnote)
                 }

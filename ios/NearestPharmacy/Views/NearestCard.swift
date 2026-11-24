@@ -18,11 +18,11 @@ struct NearestCard: View {
             .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : .isHeader)
             .accessibilityFocused(focus)
 
-            PharmacyActions(model: model, pharmacy: pharmacy)
-
-            Label("OpenStreetMap may list closed pharmacies. Check before you go.", systemImage: "info.circle")
+            Label("OpenStreetMap may list pharmacies that have closed down. Check before you go.", systemImage: "info.circle")
                 .font(.subheadline)
                 .foregroundStyle(Theme.amber)
+
+            PharmacyActions(model: model, pharmacy: pharmacy)
         }
         .pharmacyCard(isSelected: isSelected)
     }
@@ -92,8 +92,23 @@ struct PharmacyActions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) { buttons }
-                VStack(alignment: .leading, spacing: 12) { buttons }
+                HStack(spacing: 12) {
+                    directions
+                    details
+                    googleMaps
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    directions
+                    HStack(spacing: 12) {
+                        details
+                        googleMaps
+                    }
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    directions
+                    details
+                    googleMaps
+                }
             }
             if let detailsMessage {
                 Text(detailsMessage)
@@ -111,8 +126,7 @@ struct PharmacyActions: View {
         }
     }
 
-    @ViewBuilder
-    private var buttons: some View {
+    private var directions: some View {
         Button {
             model.openDirections(to: pharmacy)
         } label: {
@@ -120,7 +134,9 @@ struct PharmacyActions: View {
         }
         .buttonStyle(PrimaryPillStyle())
         .accessibilityHint("Opens Apple Maps")
+    }
 
+    private var details: some View {
         Button {
             model.showDetails(for: pharmacy)
         } label: {
@@ -136,7 +152,10 @@ struct PharmacyActions: View {
         .buttonStyle(SecondaryPillStyle())
         .disabled(isLoadingDetails)
         .accessibilityHint("Shows Apple Maps information")
+    }
 
+    @ViewBuilder
+    private var googleMaps: some View {
         if let url = pharmacy.googleMapsURL {
             Link("Google Maps", destination: url)
                 .buttonStyle(SecondaryPillStyle())

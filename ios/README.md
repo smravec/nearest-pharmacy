@@ -30,9 +30,9 @@ Maps only adds details.
 
 This has a cost: OpenStreetMap can list a pharmacy that has closed. At one test point (Kallio, Helsinki)
 the nearest one in OpenStreetMap is marked "Permanently Closed" in Apple Maps, and I could not find out
-which is right. MapKit exposes no closure status in code, so the app only shows this after you tap
-Details. The nearest card says so, and the Google Maps button opens a Google search for the pharmacy
-(a link, no API key).
+which is right. MapKit exposes no closure status in code, so the app only shows this if you tap
+Details and Apple's place matches. The nearest card warns that OpenStreetMap may list pharmacies that
+have closed down, and the Google Maps button opens a Google search for the pharmacy (a link, no API key).
 
 ## Code
 
