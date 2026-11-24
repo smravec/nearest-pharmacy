@@ -1,0 +1,158 @@
+import SwiftUI
+
+/// The pharmacies after the nearest one, which has its own card.
+struct PharmacyList: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.pharmacies.count > 1 {
+            Text("Other pharmacies nearby")
+                .font(.headline)
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, 8)
+            ForEach(rankedOthers, id: \.pharmacy.id) { rank, pharmacy in
+                PharmacyRow(model: model, pharmacy: pharmacy, rank: rank)
+                    .id(pharmacy.id)
+            }
+        }
+    }
+
+    private var rankedOthers: [(rank: Int, pharmacy: Pharmacy)] {
+        model.pharmacies.enumerated().dropFirst().map { (rank: $0.offset + 1, pharmacy: $0.element) }
+    }
+}
+
+private struct PharmacyRow: View {
+    let model: AppModel
+    let pharmacy: Pharmacy
+    let rank: Int
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                model.selectedID = pharmacy.id
+            } label: {
+                summary
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(spokenSummary)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .accessibilityAction(named: "Directions") { model.openDirections(to: pharmacy) }
+            .accessibilityAction(named: "Details") { model.showDetails(for: pharmacy) }
+
+            if isSelected {
+                PharmacyActions(model: model, pharmacy: pharmacy)
+            }
+        }
+        .padding()
+        .background(Theme.sheet)
+        .overlay(alignment: .leading) {
+            if isSelected {
+                Theme.teal.frame(width: 3)
+            }
+        }
+        .clipShape(.rect(cornerRadius: Theme.cardRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.hairline)
+        }
+    }
+
+    private var summary: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+
+        return layout {
+            Text(rank, format: .number)
+                .monospacedDigit()
+                .foregroundStyle(Theme.muted)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pharmacy.name)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+                if let address = pharmacy.address {
+                    Text(address)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
+                Text(Format.distance(pharmacy.distanceMeters))
+                    .foregroundStyle(Theme.ink)
+                Text(Format.walk(pharmacy.walkMinutes))
+                    .foregroundStyle(Theme.muted)
+            }
+            .font(.subheadline)
+            .monospacedDigit()
+        }
+        .multilineTextAlignment(.leading)
+        .frame(maxWidth: .infinity, minHeight: Theme.minimumTarget, alignment: .leading)
+        .contentShape(.rect)
+    }
+
+    private var isSelected: Bool {
+        model.selectedID == pharmacy.id
+    }
+
+    private var spokenSummary: String {
+        [
+            pharmacy.name,
+            Format.spokenDistance(pharmacy.distanceMeters),
+            Format.spokenWalk(pharmacy.walkMinutes),
+            pharmacy.address,
+        ]
+        .compactMap(\.self)
+        .joined(separator: ", ")
+    }
+}
+
+struct AttributionView: View {
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                openStreetMap
+                Text(", search by ")
+                photon
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                openStreetMap
+                HStack(spacing: 0) {
+                    Text("search by ")
+                    photon
+                }
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.body)
+        // Inside a Form row, the default style would open both links with one tap.
+        .buttonStyle(.borderless)
+    }
+
+    @ViewBuilder
+    private var openStreetMap: some View {
+        link("© OpenStreetMap contributors (ODbL)", to: "https://www.openstreetmap.org/copyright")
+    }
+
+    @ViewBuilder
+    private var photon: some View {
+        link("Photon", to: "https://photon.komoot.io")
+    }
+
+    @ViewBuilder
+    private func link(_ title: String, to address: String) -> some View {
+        if let url = URL(string: address) {
+            Link(destination: url) {
+                Text(title)
+                    .underline()
+                    .foregroundStyle(Theme.action)
+                    .multilineTextAlignment(.leading)
+                    .frame(minWidth: Theme.minimumTarget, minHeight: Theme.minimumTarget, alignment: .leading)
+                    .contentShape(.rect)
+            }
+        }
+    }
+}

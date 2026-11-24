@@ -2,9 +2,11 @@ import SwiftUI
 
 @main
 struct NearestPharmacyApp: App {
+    @State private var model = AppModel.live()
+
     var body: some Scene {
         WindowGroup {
-            Text("Nearest pharmacy")
+            RootView(model: model)
         }
     }
 }
