@@ -1,25 +1,30 @@
 export class ServiceError extends Error {
   override readonly name = 'ServiceError'
-  /** The HTTP status, when the service answered with an error. */
-  readonly status: number | undefined
-
-  constructor(message: string, options?: ErrorOptions & { status?: number }) {
-    super(message, options)
-    this.status = options?.status
-  }
 }
 
-export function withTimeout(signal: AbortSignal, ms: number): AbortSignal {
-  return AbortSignal.any([signal, AbortSignal.timeout(ms)])
-}
-
-export async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
-  const response = await fetch(url, init)
-  if (!response.ok) throw new ServiceError(`HTTP ${response.status}`, { status: response.status })
+/** Rejects with the caller's reason if `signal` aborts. Any other rejection, a timeout too, is a failure. */
+export async function fetchJson(
+  url: string,
+  signal: AbortSignal,
+  timeoutMs: number,
+  init?: RequestInit,
+): Promise<unknown> {
+  signal.throwIfAborted()
+  // Not AbortSignal.any, which Safari lacks before 17.4.
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  const timer = setTimeout(abort, timeoutMs)
+  signal.addEventListener('abort', abort)
   try {
+    const response = await fetch(url, { ...init, signal: controller.signal })
+    if (!response.ok) throw new ServiceError(`HTTP ${response.status}`)
     return await response.json()
-  } catch (cause) {
-    throw new ServiceError('Invalid JSON', { cause })
+  } catch (error) {
+    signal.throwIfAborted()
+    throw error
+  } finally {
+    clearTimeout(timer)
+    signal.removeEventListener('abort', abort)
   }
 }
 

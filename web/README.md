@@ -19,30 +19,31 @@ search works anywhere.
 ## How it finds pharmacies
 
 1. **Location:** the browser's geolocation, asked for only on click, or an address search.
-2. **Pharmacies:** OpenStreetMap through [Overpass](https://overpass-api.de), within 1, 2, 5, then
-   10 km, stopping at the first radius with a result.
-3. **Fallback:** Overpass is a free shared service and is sometimes at capacity. A quick failure
-   other than an HTTP 4xx is retried once, and an attempt gets at most 4 seconds. Then [Photon](https://photon.komoot.io)
-   answers instead. It has no opening hours or phone numbers, and the page says so.
+2. **Pharmacies:** OpenStreetMap through [Overpass](https://overpass-api.de), within 2, 5, 20, then
+   50 km, stopping at the first radius with three results.
+3. **Fallback:** Overpass is a free shared service that often refuses or stalls. An attempt gets at most
+   4 seconds and isn't retried. Then [Photon](https://photon.komoot.io) finds the nearest 20, and
+   Nominatim looks up their opening hours, phone numbers and websites. If that fails, the page says so.
 4. **Order:** straight-line (haversine) distance. Walking time assumes 5 km/h and is labeled as an
    estimate, because there is no routing service.
 
 | Data | Service |
 |---|---|
-| Pharmacies | Overpass, then Photon |
+| Pharmacies | Overpass, then Photon with Nominatim |
 | Address search | Nominatim |
 | Map tiles | OpenFreeMap, drawn by MapLibre GL JS |
 
 Coordinates or the search text go directly from the browser to these services. Nothing is stored.
+Overpass and Photon get the position rounded to about 11 m.
 Directions opens Google Maps; for a searched address, its coordinates go along as the start.
 
 ## Decisions
 
 - **Search on submit only.** Nominatim's usage policy forbids autocomplete. Requests are limited to
   one per second and cached for the session.
-- **Unknown is not closed.** Missing or unparseable hours show "Hours unavailable". So do hours with
-  public or school holiday rules (they depend on the country) and sunrise or sunset. Other hours
-  ignore holidays, and the page says so.
+- **Unknown is not closed.** Missing hours show "Hours unavailable". Hours that can't be evaluated are
+  shown as listed: unparseable ones, public or school holiday rules (they depend on the country) and
+  sunrise or sunset. Other hours ignore holidays, and the page says so.
 - **The pharmacy's time zone.** Hours are evaluated where the pharmacy is, so searching another
   city gives the right answer.
 - **OpenStreetMap data is untrusted.** It is rendered as text only, and links must be http(s).

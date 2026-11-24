@@ -1,11 +1,12 @@
 import type { LatLng, Pharmacy } from '../domain/types'
 import { fetchJson, firstText, isRecord, ServiceError } from './http'
-import { formatAddress, rankByDistance, toLatLng } from './overpass'
-import type { UnmeasuredPharmacy } from './overpass'
+import { formatAddress, rankByDistance, roundCoordinate, toLatLng } from './osm'
+import type { UnmeasuredPharmacy } from './osm'
 
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/reverse'
 /** The server's maximum. */
 const RESULT_LIMIT = 50
+const TIMEOUT_MS = 6_000
 
 const OSM_TYPES: Record<string, string> = { N: 'node', W: 'way', R: 'relation' }
 
@@ -32,33 +33,27 @@ function parseFeature(feature: unknown): UnmeasuredPharmacy | undefined {
       postcode: firstText(properties, 'postcode'),
       city: firstText(properties, 'city'),
     }),
-    source: 'photon',
   }
 }
 
-export interface PhotonResult {
-  pharmacies: Pharmacy[]
-  /** There may be more pharmacies further away. */
-  limitReached: boolean
-}
-
-/** The nearest pharmacies within 10 km. Photon has no phone numbers, websites or opening hours. */
-export async function queryPhoton(origin: LatLng, signal: AbortSignal): Promise<PhotonResult> {
+/** The nearest pharmacies. Photon has no phone numbers, websites or opening hours. */
+export async function queryPhoton(
+  origin: LatLng,
+  radiusM: number,
+  signal: AbortSignal,
+): Promise<Pharmacy[]> {
   const params = new URLSearchParams({
-    lat: String(origin.lat),
-    lon: String(origin.lng),
+    lat: roundCoordinate(origin.lat),
+    lon: roundCoordinate(origin.lng),
     osm_tag: 'amenity:pharmacy',
-    radius: '10', // km
+    radius: String(radiusM / 1000), // km
     limit: String(RESULT_LIMIT),
   })
-  const body = await fetchJson(`${PHOTON_ENDPOINT}?${params}`, { signal })
+  const body = await fetchJson(`${PHOTON_ENDPOINT}?${params}`, signal, TIMEOUT_MS)
 
   if (!isRecord(body) || !Array.isArray(body.features)) {
     throw new ServiceError('Unexpected Photon response')
   }
   const found = body.features.map(parseFeature).filter((p) => p !== undefined)
-  return {
-    pharmacies: rankByDistance(found, origin),
-    limitReached: body.features.length >= RESULT_LIMIT,
-  }
+  return rankByDistance(found, origin)
 }

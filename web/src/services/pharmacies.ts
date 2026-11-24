@@ -1,85 +1,69 @@
-import type { Origin, PharmacyResult } from '../domain/types'
-import { ServiceError, sleep, withTimeout } from './http'
-import { OVERPASS_ENDPOINTS, queryOverpass } from './overpass'
+import type { LatLng, Origin, Pharmacy, PharmacyResult } from '../domain/types'
+import { ServiceError } from './http'
+import { lookupTags } from './nominatim'
+import { parseDetails } from './osm'
+import { queryOverpass } from './overpass'
 import { queryPhoton } from './photon'
 
-const RADII_M = [1000, 2000, 5000, 10000] as const
-const MAX_RADIUS_M = 10000
+const MAX_RADIUS_M = 50_000
+const RADII_M = [2_000, 5_000, 20_000, MAX_RADIUS_M]
+/** Wide enough for this many, so that one closed pharmacy isn't the whole list. */
+const MIN_RESULTS = 3
+/** Nominatim's policy allows looking up the results shown, not downloading an area's pharmacies. */
+const MAX_PHOTON_RESULTS = 20
 
 const OVERPASS_BUDGET_MS = 12_000
-const ATTEMPT_MS = 4_000
-/** A failure quicker than this is likely momentary, worth one retry. */
-const FAST_FAIL_MS = 1_000
-const RETRY_DELAY_MS = 700
-const PHOTON_TIMEOUT_MS = 6_000
+const OVERPASS_ATTEMPT_MS = 4_000
 
-/** A 4xx, such as the rate limit: an immediate retry would get the same answer. */
-function isRefusal(error: unknown): boolean {
-  if (!(error instanceof ServiceError) || error.status === undefined) return false
-  return error.status >= 400 && error.status < 500
-}
-
-/** Widens the radius until Overpass finds something. Undefined if no endpoint gave an answer. */
+/**
+ * Undefined if Overpass gave no answer. It often refuses or stalls and the fallback is good, so
+ * retrying would only make people wait.
+ */
 async function searchOverpass(
-  origin: Origin,
+  origin: LatLng,
   signal: AbortSignal,
 ): Promise<PharmacyResult | undefined> {
   const deadline = performance.now() + OVERPASS_BUDGET_MS
-  let radiusIndex = 0
-
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    let retried = false
-    for (;;) {
-      const radiusM = RADII_M[radiusIndex]
-      if (radiusM === undefined) {
-        return { pharmacies: [], radiusM: MAX_RADIUS_M, source: 'overpass' }
-      }
-      const startedAt = performance.now()
-      const remaining = deadline - startedAt
-      if (remaining <= 0) return undefined
-
-      try {
-        const attempt = withTimeout(signal, Math.min(ATTEMPT_MS, remaining))
-        const pharmacies = await queryOverpass(endpoint, origin.position, radiusM, attempt)
-        if (pharmacies.length > 0) return { pharmacies, radiusM, source: 'overpass' }
-        radiusIndex++
-      } catch (error) {
-        signal.throwIfAborted()
-        const failedAt = performance.now()
-        const failedFast = failedAt - startedAt < FAST_FAIL_MS
-        const canRetry = !retried && failedFast && !isRefusal(error)
-        if (!canRetry || deadline - failedAt <= RETRY_DELAY_MS) break
-        retried = true
-        await sleep(RETRY_DELAY_MS, signal)
-      }
-    }
-  }
-  return undefined
-}
-
-async function searchPhoton(origin: Origin, signal: AbortSignal): Promise<PharmacyResult> {
+  let found: PharmacyResult | undefined
   try {
-    const { pharmacies: found, limitReached } = await queryPhoton(
-      origin.position,
-      withTimeout(signal, PHOTON_TIMEOUT_MS),
-    )
-    const nearestM = found[0]?.distanceM ?? Infinity
-    const furthestM = found.at(-1)?.distanceM ?? 0
-    // The smallest step that has a result, so both sources show comparable lists.
-    const radiusM = RADII_M.find((radius) => radius >= nearestM) ?? MAX_RADIUS_M
-    return {
-      pharmacies: found.filter((p) => p.distanceM <= radiusM),
-      radiusM,
-      source: 'photon',
-      truncated: limitReached && furthestM < radiusM,
+    for (const radiusM of RADII_M) {
+      const timeoutMs = Math.min(OVERPASS_ATTEMPT_MS, deadline - performance.now())
+      if (timeoutMs <= 0) throw new ServiceError('Overpass took too long')
+      found = { pharmacies: await queryOverpass(origin, radiusM, signal, timeoutMs), radiusM }
+      if (found.pharmacies.length >= MIN_RESULTS) break
     }
-  } catch (cause) {
+  } catch {
     signal.throwIfAborted()
-    throw new ServiceError('No pharmacy data service responded', { cause })
+    // The narrower radius may have found some. If it found none, there may still be some further away.
+    if (!found?.pharmacies.length) return undefined
+  }
+  return found
+}
+
+async function addDetails(pharmacies: Pharmacy[], signal: AbortSignal): Promise<Pharmacy[]> {
+  const tags = await lookupTags(pharmacies.map((p) => p.id), signal)
+  return pharmacies.map((p) => ({ ...p, ...parseDetails(tags.get(p.id) ?? {}) }))
+}
+
+async function searchPhoton(origin: LatLng, signal: AbortSignal): Promise<PharmacyResult> {
+  const found = await queryPhoton(origin, MAX_RADIUS_M, signal)
+  // The smallest step with enough results, so that both sources show comparable lists.
+  const enoughM = found[MIN_RESULTS - 1]?.distanceM ?? Infinity
+  const radiusM = RADII_M.find((radius) => radius >= enoughM) ?? MAX_RADIUS_M
+  const within = found.filter((p) => p.distanceM <= radiusM)
+  const pharmacies = within.slice(0, MAX_PHOTON_RESULTS)
+  const result = { pharmacies, radiusM, truncated: within.length > pharmacies.length }
+  try {
+    return { ...result, pharmacies: await addDetails(pharmacies, signal) }
+  } catch {
+    signal.throwIfAborted()
+    return { ...result, detailsMissing: true }
   }
 }
 
-export async function findPharmacies(origin: Origin, signal: AbortSignal): Promise<PharmacyResult> {
-  signal.throwIfAborted()
-  return (await searchOverpass(origin, signal)) ?? searchPhoton(origin, signal)
+export async function findPharmacies(
+  { position }: Origin,
+  signal: AbortSignal,
+): Promise<PharmacyResult> {
+  return (await searchOverpass(position, signal)) ?? searchPhoton(position, signal)
 }

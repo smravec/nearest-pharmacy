@@ -1,55 +1,11 @@
-import { haversineM, walkMinutes } from '../domain/distance'
 import type { LatLng, Pharmacy } from '../domain/types'
-import { fetchJson, firstText, httpUrl, isRecord, ServiceError } from './http'
+import { fetchJson, firstText, isRecord, ServiceError } from './http'
+import { formatAddress, parseDetails, rankByDistance, roundCoordinate, toLatLng } from './osm'
+import type { OsmTags, UnmeasuredPharmacy } from './osm'
 
-/**
- * Tried in order. Mirrors must be global and CORS-enabled. overpass.osm.ch is left out: it
- * returned an empty 200 for Helsinki.
- */
-export const OVERPASS_ENDPOINTS: readonly string[] = ['https://overpass-api.de/api/interpreter']
+const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter'
 
-export type UnmeasuredPharmacy = Omit<Pharmacy, 'distanceM' | 'walkMinutes'>
-
-/** Drops duplicates, adds distances and sorts nearest first. */
-export function rankByDistance(found: UnmeasuredPharmacy[], origin: LatLng): Pharmacy[] {
-  const byId = new Map<string, Pharmacy>()
-  for (const pharmacy of found) {
-    if (byId.has(pharmacy.id)) continue
-    const distanceM = haversineM(origin, pharmacy.position)
-    byId.set(pharmacy.id, { ...pharmacy, distanceM, walkMinutes: walkMinutes(distanceM) })
-  }
-  return [...byId.values()].sort(
-    (a, b) => a.distanceM - b.distanceM || (a.id < b.id ? -1 : 1),
-  )
-}
-
-interface AddressParts {
-  street?: string
-  houseNumber?: string
-  postcode?: string
-  city?: string
-}
-
-const joinPresent = (parts: (string | undefined)[], separator: string) =>
-  parts.filter(Boolean).join(separator)
-
-export function formatAddress({ street, houseNumber, postcode, city }: AddressParts): string | undefined {
-  const line = street && joinPresent([street, houseNumber], ' ')
-  return joinPresent([line, joinPresent([postcode, city], ' ')], ', ') || undefined
-}
-
-/** A position from two untrusted values, or undefined unless both are finite numbers. */
-export function toLatLng(lat: unknown, lng: unknown): LatLng | undefined {
-  if (typeof lat !== 'number' || typeof lng !== 'number') return undefined
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined
-}
-
-function parseWheelchair(value: unknown): Pharmacy['wheelchair'] {
-  if (value === 'designated') return 'yes'
-  return value === 'yes' || value === 'limited' || value === 'no' ? value : undefined
-}
-
-function parseAddress(tags: Record<string, unknown>): string | undefined {
+function parseAddress(tags: OsmTags): string | undefined {
   const address = formatAddress({
     street: firstText(tags, 'addr:street', 'addr:place'),
     houseNumber: firstText(tags, 'addr:housenumber'),
@@ -76,26 +32,21 @@ function parseElement(element: unknown): UnmeasuredPharmacy | undefined {
     name: firstText(tags, 'name', 'brand', 'operator') ?? 'Pharmacy',
     position,
     address: parseAddress(tags),
-    phone: firstText(tags, 'phone', 'contact:phone', 'contact:mobile'),
-    website: httpUrl(tags.website) ?? httpUrl(tags['contact:website']) ?? httpUrl(tags.url),
-    openingHours: firstText(tags, 'opening_hours'),
-    wheelchair: parseWheelchair(tags.wheelchair),
-    source: 'overpass',
+    ...parseDetails(tags),
   }
 }
 
 export async function queryOverpass(
-  endpoint: string,
   origin: LatLng,
   radiusM: number,
   signal: AbortSignal,
+  timeoutMs: number,
 ): Promise<Pharmacy[]> {
-  const around = `${radiusM},${origin.lat.toFixed(6)},${origin.lng.toFixed(6)}`
+  const around = `${radiusM},${roundCoordinate(origin.lat)},${roundCoordinate(origin.lng)}`
   const data = `[out:json][timeout:5];nwr[amenity=pharmacy](around:${around});out center tags;`
-  const body = await fetchJson(endpoint, {
+  const body = await fetchJson(OVERPASS_ENDPOINT, signal, timeoutMs, {
     method: 'POST',
     body: new URLSearchParams({ data }),
-    signal,
   })
 
   if (!isRecord(body) || !Array.isArray(body.elements)) {

@@ -12,8 +12,6 @@ export interface Origin {
   accuracyM?: number
 }
 
-export type DataSource = 'overpass' | 'photon'
-
 export interface Pharmacy {
   /** `node/123`, `way/123` or `relation/123`: the same in every source. */
   id: string
@@ -29,7 +27,6 @@ export interface Pharmacy {
   /** Raw OSM `opening_hours` value. */
   openingHours?: string
   wheelchair?: 'yes' | 'limited' | 'no'
-  source: DataSource
 }
 
 /** `unknown` covers missing and unparseable hours. It never means closed. */
@@ -42,9 +39,10 @@ export interface PharmacyResult {
   pharmacies: Pharmacy[]
   /** The radius that produced the result, in meters. */
   radiusM: number
-  source: DataSource
-  /** The source's result limit was reached before the radius, so more pharmacies may lie within it. */
+  /** More pharmacies may lie within the radius. */
   truncated?: boolean
+  /** Opening hours, phone numbers, websites and wheelchair access couldn't be loaded. */
+  detailsMissing?: boolean
 }
 
 export type LocationProblem = 'denied' | 'unavailable' | 'timeout' | 'unsupported'

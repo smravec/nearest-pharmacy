@@ -29,7 +29,7 @@ export function PharmacyList({
   onSelect,
   onEnterMap,
 }: PharmacyListProps) {
-  const { pharmacies, radiusM, source, truncated } = result
+  const { pharmacies, radiusM, truncated, detailsMissing } = result
   const hasKeyboard = useMediaQuery('(hover: hover) and (pointer: fine)')
   const [lastFocusedId, setLastFocusedId] = useState<string | null>(null)
   const tabStopId = selectedId ?? lastFocusedId ?? pharmacies[0]?.id
@@ -128,15 +128,12 @@ export function PharmacyList({
         </ol>
       </div>
       <div className="np-notes">
-        {source === 'photon' ? (
+        {detailsMissing ? (
           <p className="np-notes__warning">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path d="M12 3.5 21.5 20h-19zM12 10v4.5M12 17v.5" />
             </svg>
-            <span>
-              The detailed pharmacy service isn't answering, so opening hours and phone numbers are missing.
-              Names, distances and addresses come from OpenStreetMap through Photon.
-            </span>
+            <span>Opening hours and phone numbers couldn't be loaded.</span>
           </p>
         ) : (
           <p>

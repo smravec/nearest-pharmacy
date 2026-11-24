@@ -6,7 +6,7 @@ export function Attribution() {
         Map by <a href="https://openfreemap.org">OpenFreeMap</a> and{' '}
         <a href="https://maplibre.org">MapLibre</a>. Place search by{' '}
         <a href="https://nominatim.org">Nominatim</a>, fallback by{' '}
-        <a href="https://photon.komoot.io">Photon</a>.
+        <a href="https://photon.komoot.io">Photon</a> and Nominatim.
       </p>
       <p>
         Independent demo. Not a medical service and not affiliated with any pharmacy or healthcare provider.

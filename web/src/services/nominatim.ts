@@ -1,12 +1,15 @@
 import type { Origin } from '../domain/types'
-import { fetchJson, firstText, isRecord, ServiceError, sleep, withTimeout } from './http'
+import { fetchJson, firstText, isRecord, ServiceError, sleep } from './http'
+import type { OsmTags } from './osm'
 
 // Nominatim's usage policy: at most one request per second, cached results, no autocomplete.
-const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search'
+const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org'
 const MIN_INTERVAL_MS = 1_100
-const TIMEOUT_MS = 8_000
+const SEARCH_TIMEOUT_MS = 8_000
+const LOOKUP_TIMEOUT_MS = 4_000
 
-const cache = new Map<string, Origin | null>()
+const originsByQuery = new Map<string, Origin | null>()
+const tagsById = new Map<string, OsmTags>()
 let nextSlot = 0
 
 async function waitForSlot(signal: AbortSignal): Promise<void> {
@@ -46,9 +49,7 @@ function parsePlace(place: unknown, query: string): Origin {
 
 async function requestPlace(query: string, signal: AbortSignal): Promise<Origin | null> {
   const params = new URLSearchParams({ q: query, format: 'jsonv2', addressdetails: '1', limit: '1' })
-  const body = await fetchJson(`${NOMINATIM_ENDPOINT}?${params}`, {
-    signal: withTimeout(signal, TIMEOUT_MS),
-  })
+  const body = await fetchJson(`${NOMINATIM_ENDPOINT}/search?${params}`, signal, SEARCH_TIMEOUT_MS)
   if (!Array.isArray(body)) throw new ServiceError('Unexpected Nominatim response')
   return body.length > 0 ? parsePlace(body[0], query) : null
 }
@@ -59,16 +60,44 @@ export async function geocode(query: string, signal: AbortSignal): Promise<Origi
   if (!normalized) return null
 
   const key = normalized.toLowerCase()
-  const cached = cache.get(key)
+  const cached = originsByQuery.get(key)
   if (cached !== undefined) return cached
 
   await waitForSlot(signal)
-  try {
-    const origin = await requestPlace(normalized, signal)
-    cache.set(key, origin)
-    return origin
-  } catch (error) {
-    signal.throwIfAborted()
-    throw error
+  const origin = await requestPlace(normalized, signal)
+  originsByQuery.set(key, origin)
+  return origin
+}
+
+/** `node/123` is `N123` here. */
+function toOsmId(id: string): string {
+  const [type = '', number = ''] = id.split('/')
+  return type.charAt(0).toUpperCase() + number
+}
+
+/** The OSM tags of pharmacies, by pharmacy id. */
+export async function lookupTags(
+  ids: string[],
+  signal: AbortSignal,
+): Promise<ReadonlyMap<string, OsmTags>> {
+  const missing = ids.filter((id) => !tagsById.has(id))
+  if (missing.length === 0) return tagsById
+
+  await waitForSlot(signal)
+  const params = new URLSearchParams({
+    osm_ids: missing.map(toOsmId).join(','),
+    format: 'jsonv2',
+    extratags: '1',
+    addressdetails: '0',
+  })
+  const body = await fetchJson(`${NOMINATIM_ENDPOINT}/lookup?${params}`, signal, LOOKUP_TIMEOUT_MS)
+  if (!Array.isArray(body)) throw new ServiceError('Unexpected Nominatim response')
+
+  // Objects that Nominatim leaves out are remembered too.
+  for (const id of missing) tagsById.set(id, {})
+  for (const place of body) {
+    if (!isRecord(place) || !isRecord(place.extratags)) continue
+    tagsById.set(`${place.osm_type}/${place.osm_id}`, place.extratags)
   }
+  return tagsById
 }
