@@ -136,8 +136,8 @@ private struct ResultsView: View {
 
     private func panelHeight(in height: CGFloat) -> CGFloat {
         if dynamicTypeSize.isAccessibilitySize { return height * 0.85 }
-        // 420 points show the nearest card and the next heading, if that leaves room for the map.
-        return max(height * 0.55, min(420, height * 0.7))
+        // 430 points show the nearest card and the next heading, if that leaves room for the map.
+        return max(height * 0.55, min(430, height * 0.72))
     }
 }
 

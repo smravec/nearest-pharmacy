@@ -9,7 +9,7 @@ final class PlaceSearch: NSObject {
     private static let maximumSuggestions = 8
 
     private(set) var suggestions: [MKLocalSearchCompletion] = []
-    /// Apple has answered, without suggestions.
+    /// Nothing to suggest: Apple found nothing, or couldn't be reached.
     private(set) var hasNoSuggestions = false
 
     @ObservationIgnored private let completer = MKLocalSearchCompleter()

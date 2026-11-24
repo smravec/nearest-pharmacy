@@ -27,8 +27,8 @@ Central (60.1719, 24.9414). Without one, the app says it couldn't find your loca
 ### Why not MapKit's pharmacy search?
 
 Because it returns places that aren't pharmacies. On 2026-11-24 I compared both sources at ten public
-points, each with a 5 km radius. The nearest result of each,
-in metres rounded down:
+points, each with a 5 km radius. The nearest result of each (metres, rounded
+down):
 
 | Point | MapKit pharmacy category | OpenStreetMap (Photon) |
 |---|---|---|
