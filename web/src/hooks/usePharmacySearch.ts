@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LookupState, Origin, SearchState } from '../domain/types'
+import type { LatLng, LookupState, Origin, SearchState } from '../domain/types'
 import { locate as requestLocation, LocationError } from '../services/geolocation'
 import { geocode } from '../services/nominatim'
 import { findPharmacies } from '../services/pharmacies'
@@ -19,6 +19,7 @@ export function usePharmacySearch(): PharmacySearch {
   const lookupRef = useRef<AbortController | null>(null)
   const searchRef = useRef<AbortController | null>(null)
   const queryRef = useRef('')
+  const loadingRef = useRef<LatLng | null>(null)
 
   useEffect(
     () => () => {
@@ -39,12 +40,17 @@ export function usePharmacySearch(): PharmacySearch {
   /** Ends the lookup and replaces the search, which keeps going until there is a new place. */
   async function load(origin: Origin) {
     lookupRef.current?.abort()
+    setLookup({ status: 'idle' })
+    // Asking again for the place that is loading would only start over.
+    const { lat, lng } = origin.position
+    if (loadingRef.current?.lat === lat && loadingRef.current.lng === lng) return
+
     searchRef.current?.abort()
     const controller = new AbortController()
     searchRef.current = controller
+    loadingRef.current = origin.position
     const { signal } = controller
 
-    setLookup({ status: 'idle' })
     setSearch({ status: 'loading', origin })
     try {
       const result = await findPharmacies(origin, signal)
@@ -56,6 +62,8 @@ export function usePharmacySearch(): PharmacySearch {
       )
     } catch {
       if (!signal.aborted) setSearch({ status: 'error', origin })
+    } finally {
+      if (!signal.aborted) loadingRef.current = null
     }
   }
 

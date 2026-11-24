@@ -14,7 +14,12 @@ function path(className: string, d: string) {
  * the result list is the accessible way to reach the same pharmacies.
  * MapLibre writes `transform` and `opacity` on the root, so all visual states live on its children.
  */
-export function createPharmacyPin(name: string, nearest: boolean, onClick: () => void): HTMLElement {
+export function createPharmacyPin(
+  name: string,
+  distance: string,
+  nearest: boolean,
+  onClick: () => void,
+): HTMLElement {
   const root = document.createElement('div')
   root.className = nearest ? 'pmap-pin pmap-pin--nearest' : 'pmap-pin'
   root.title = name
@@ -28,8 +33,9 @@ export function createPharmacyPin(name: string, nearest: boolean, onClick: () =>
 
   const tag = document.createElement('span')
   tag.className = 'pmap-pin__tag'
-  // The title has no tooltip on touch screens, so the tag names the selected pharmacy.
-  tag.textContent = nearest ? 'Nearest' : name
+  // The title has no tooltip on touch screens, so the tag names the selected pharmacy. The distance
+  // comes first, because a long name is cut off.
+  tag.textContent = nearest ? 'Nearest' : `${distance} · ${name}`
 
   root.append(svg, tag)
   return root

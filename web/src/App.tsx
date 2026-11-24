@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { Attribution } from './components/Attribution'
@@ -16,6 +16,8 @@ import { usePharmacySearch } from './hooks/usePharmacySearch'
 
 /** Where layout.css puts the list next to the map. */
 const TWO_COLUMNS = '(min-width: 960px)'
+
+const PharmacyMap = lazy(() => import('./components/PharmacyMap'))
 
 interface ResultsProps {
   origin: Origin
@@ -68,12 +70,23 @@ function Results({ origin, result, headingRef, onRetry }: ResultsProps) {
         />
       )}
       <section className="np-map">
+        {/* Browsers can keep a failed import until the page is reloaded, so there is no retry button. */}
         <MapBoundary
-          origin={origin}
-          pharmacies={pharmacies}
-          selectedId={selectedId}
-          onSelect={handlePin}
-        />
+          fallback={
+            <p className="np-map__message">
+              The map couldn't load. The list has the same pharmacies. Reload the page to try again.
+            </p>
+          }
+        >
+          <Suspense fallback={<p className="np-map__message np-map__message--loading">Loading map…</p>}>
+            <PharmacyMap
+              origin={origin}
+              pharmacies={pharmacies}
+              selectedId={selectedId}
+              onSelect={handlePin}
+            />
+          </Suspense>
+        </MapBoundary>
       </section>
       <PharmacyList
         origin={origin}

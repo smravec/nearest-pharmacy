@@ -1,5 +1,6 @@
 import { LngLatBounds, Map as MapLibreMap, Marker, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+import { formatDistance } from '../../domain/format'
 import type { Origin, Pharmacy } from '../../domain/types'
 import { createPharmacyPin, createUserPin, setPinSelected } from './pins'
 
@@ -161,8 +162,9 @@ export class MapController {
     window.clearTimeout(this.deadline)
   }
 
-  private addPin({ id, name, position }: Pharmacy, nearest: boolean) {
-    const element = createPharmacyPin(name, nearest, () => this.handlePinClick(id))
+  private addPin({ id, name, position, distanceM }: Pharmacy, nearest: boolean) {
+    const distance = formatDistance(distanceM)
+    const element = createPharmacyPin(name, distance, nearest, () => this.handlePinClick(id))
     const marker = new Marker({ element, anchor: 'bottom' })
     marker.setLngLat([position.lng, position.lat]).addTo(this.map)
     this.pins.set(id, element)

@@ -283,7 +283,7 @@
   justify-content: start;
   min-height: 44px;
   padding-block: 8px;
-  border-radius: 12px;
+  border-radius: 22px;
   text-align: start;
   overflow-wrap: anywhere;
 }
@@ -398,8 +398,6 @@
 .np-map__message {
   display: grid;
   place-items: center;
-  align-content: center;
-  gap: 12px;
   height: 100%;
   padding: 24px;
   text-align: center;
@@ -516,6 +514,22 @@
 
 .np-row__open {
   grid-area: 2 / 2;
+}
+
+/* Too narrow for two columns of text, which a large default font size makes of any phone. */
+@media (max-width: 19.99em) {
+  .np-hero--compact .np-search__form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .np-row {
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+  }
+
+  .np-row :is(.np-row__distance, .np-row__walk, .np-row__open) {
+    grid-area: auto / 2;
+    text-align: start;
+  }
 }
 
 /* Listed hours can be long. The expanded row and the card show them in full. */

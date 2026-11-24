@@ -73,7 +73,7 @@ export function LocationSearch({
           inputMode="search"
           enterKeyHint="search"
           autoComplete="off"
-          placeholder="For example Kallio, Helsinki"
+          placeholder="Kallio, Helsinki"
           value={query}
           onChange={handleChange}
           aria-invalid={addressFailed || undefined}

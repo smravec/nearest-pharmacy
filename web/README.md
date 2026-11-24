@@ -45,15 +45,16 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
   one per second in each tab and cached for the session. The policy counts all users together, so a
   real product would need its own Nominatim.
 - **Unknown is not closed.** Missing hours show "Hours unavailable". Hours that can't be evaluated are
-  shown as listed, with PH and SH spelled out as public and school holidays: unparseable ones, public or school holiday rules (they depend on the country) and
-  sunrise or sunset. Other hours ignore holidays, and the page says so.
+  shown as listed, with PH and SH spelled out. Those are unparseable hours, public or school holiday
+  rules (they depend on the country) and sunrise or sunset. Other hours ignore holidays, and the page says so.
 - **The pharmacy's time zone.** Hours are evaluated where the pharmacy is, so searching another
   city gives the right answer.
 - **OpenStreetMap data is untrusted.** It is rendered as text only, and links must be http(s).
 - **Lazy loading.** The map and the opening hours parser are separate chunks, so the first view
   doesn't wait for them.
-- **The map is optional.** Without WebGL or tiles, the list still has every pharmacy. If the map's
-  code or the tile host doesn't answer (the host gets 10 seconds), the map says so and offers Try again.
+- **The map is optional.** Without WebGL or tiles, the list still has every pharmacy. If the
+  tile host doesn't answer within 10 seconds, the map says so and offers Try again. If the map's code
+  can't be downloaded, it asks for a reload.
 
 ## Accessibility
 
