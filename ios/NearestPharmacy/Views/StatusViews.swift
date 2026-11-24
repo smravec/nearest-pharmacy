@@ -135,19 +135,31 @@ struct StatusView<Actions: View>: View {
     let message: String
     @ViewBuilder let actions: Actions
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
+        // The largest text would push the buttons off the screen.
+        let isActionFirst = dynamicTypeSize.isAccessibilitySize && icon != nil
         ScrollView {
             VStack(spacing: 12) {
-                symbol
-                    .accessibilityHidden(true)
+                if !isActionFirst {
+                    symbol
+                        .accessibilityHidden(true)
+                }
                 Text(title)
                     .font(.title2.bold())
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
+                if isActionFirst {
+                    VStack(spacing: 12) { actions }
+                        .padding(.bottom, 12)
+                }
                 Text(message)
                     .foregroundStyle(Theme.body)
-                VStack(spacing: 12) { actions }
-                    .padding(.top, 12)
+                if !isActionFirst {
+                    VStack(spacing: 12) { actions }
+                        .padding(.top, 12)
+                }
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: 560)

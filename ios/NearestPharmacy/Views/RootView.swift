@@ -172,7 +172,7 @@ private struct ResultsPanel: View {
             .onChange(of: model.selectedID) { _, selectedID in
                 guard let selectedID else { return }
                 withAnimation(reduceMotion ? nil : .default) {
-                    proxy.scrollTo(selectedID, anchor: .center)
+                    proxy.scrollTo(selectedID, anchor: .top)
                 }
             }
         }

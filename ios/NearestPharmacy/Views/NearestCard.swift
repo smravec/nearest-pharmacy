@@ -156,6 +156,8 @@ struct PharmacyActions: View {
             // Beside the icon, the largest text would have to break the word.
             if dynamicTypeSize.isAccessibilitySize {
                 Text("Directions")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             } else {
                 Label("Directions", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
             }
