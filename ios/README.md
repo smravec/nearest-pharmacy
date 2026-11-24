@@ -9,7 +9,7 @@ Open `NearestPharmacy.xcodeproj` in Xcode (developed with 27.2) and run it in a 
 later. For a device, choose your own team under Signing & Capabilities.
 
 To set a position in the simulator: Features › Location › Custom Location, for example Helsinki
-Central (60.1719, 24.9414).
+Central (60.1719, 24.9414). Without one, the app says it couldn't find your location after about 12 seconds.
 
 ## How it works
 
