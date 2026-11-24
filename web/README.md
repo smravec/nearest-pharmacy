@@ -45,7 +45,7 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
   real product would need its own Nominatim.
 - **Unknown is not closed.** Missing hours show "Hours unavailable". Hours that can't be evaluated are
   shown as listed: unparseable ones, public or school holiday rules (they depend on the country) and
-  sunrise or sunset. Other hours ignore holidays, so the page says to call ahead.
+  sunrise or sunset. Other hours ignore holidays, and the page says so.
 - **The pharmacy's time zone.** Hours are evaluated where the pharmacy is, so searching another
   city gives the right answer.
 - **OpenStreetMap data is untrusted.** It is rendered as text only, and links must be http(s).
