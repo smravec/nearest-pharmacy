@@ -1,9 +1,13 @@
 import Foundation
 
+protocol PharmacyFinding: Sendable {
+    /// Returns an empty list only when the service answered and found nothing in the whole radius.
+    func nearest(to origin: Coordinate) async throws -> PharmacyResults
+}
+
 /// Finds pharmacies in OpenStreetMap through Photon's public geocoder.
 struct PhotonPharmacyService: PharmacyFinding {
-    private static let radiiKilometers = [5, 15, 50, 100]
-    private static let totalTimeout: Duration = .seconds(15)
+    private static let radiusKilometers = 100
 
     private let session: URLSession
 
@@ -11,100 +15,51 @@ struct PhotonPharmacyService: PharmacyFinding {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 8
         configuration.httpAdditionalHeaders = ["User-Agent": "NearestPharmacy-iOS/1.0"]
         session = URLSession(configuration: configuration)
     }
 
     func nearest(to origin: Coordinate) async throws -> PharmacyResults {
-        try await withThrowingTaskGroup(of: PharmacyResults.self) { group in
-            defer { group.cancelAll() }
-            group.addTask { try await search(from: origin) }
-            group.addTask {
-                try await Task.sleep(for: Self.totalTimeout)
-                throw SearchFailure.serviceUnavailable
-            }
-            guard let results = try await group.next() else { throw SearchFailure.serviceUnavailable }
-            return results
-        }
-    }
-
-    /// Widens the radius until something is found, so nearby searches stay small.
-    private func search(from origin: Coordinate) async throws -> PharmacyResults {
-        var lastRadius = 0
-        for radius in Self.radiiKilometers {
-            try Task.checkCancellation()
-            lastRadius = radius
-            let pharmacies = try await pharmacies(within: radius, of: origin)
-            if !pharmacies.isEmpty {
-                return PharmacyResults(pharmacies: pharmacies, radiusKilometers: radius)
-            }
-        }
-        return PharmacyResults(pharmacies: [], radiusKilometers: lastRadius)
-    }
-
-    private func pharmacies(within radius: Int, of origin: Coordinate) async throws -> [Pharmacy] {
         do {
-            let (data, response) = try await session.data(from: url(origin: origin, radius: radius))
+            let (data, response) = try await session.data(from: Self.url(near: origin))
             guard (response as? HTTPURLResponse)?.statusCode == 200 else {
                 throw SearchFailure.serviceUnavailable
             }
-            return try Self.pharmacies(in: data, within: radius, of: origin)
+            return PharmacyResults(
+                pharmacies: try Self.pharmacies(in: data, from: origin),
+                radiusKilometers: Self.radiusKilometers
+            )
         } catch {
-            throw Self.mapped(error)
+            throw Task.isCancelled ? CancellationError() : SearchFailure(error)
         }
     }
 
-    private func url(origin: Coordinate, radius: Int) throws -> URL {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "photon.komoot.io"
-        components.path = "/reverse"
-        components.queryItems = [
-            URLQueryItem(name: "lat", value: Self.degrees(origin.latitude)),
-            URLQueryItem(name: "lon", value: Self.degrees(origin.longitude)),
+    /// Photon gets the position rounded to about 100 m; the exact distances are worked out here.
+    private static func url(near origin: Coordinate) throws -> URL {
+        var components = URLComponents(string: "https://photon.komoot.io/reverse")
+        components?.queryItems = [
+            URLQueryItem(name: "lat", value: Coordinate.degrees(origin.latitude, decimals: 3)),
+            URLQueryItem(name: "lon", value: Coordinate.degrees(origin.longitude, decimals: 3)),
             URLQueryItem(name: "osm_tag", value: "amenity:pharmacy"),
-            URLQueryItem(name: "radius", value: String(radius)),
+            URLQueryItem(name: "radius", value: String(radiusKilometers)),
             URLQueryItem(name: "limit", value: "30"),
             URLQueryItem(name: "lang", value: "default"),
         ]
-        guard let url = components.url else { throw SearchFailure.serviceUnavailable }
+        guard let url = components?.url else { throw SearchFailure.serviceUnavailable }
         return url
     }
 
-    private static func degrees(_ value: Double) -> String {
-        String(format: "%.5f", locale: Locale(identifier: "en_US_POSIX"), value)
-    }
-
-    private static func pharmacies(in data: Data, within radius: Int, of origin: Coordinate) throws -> [Pharmacy] {
+    private static func pharmacies(in data: Data, from origin: Coordinate) throws -> [Pharmacy] {
         let features = try JSONDecoder().decode(PhotonResponse.self, from: data).features
         let usable = features.compactMap { $0.value?.pharmacy(from: origin) }
         // Unreadable results must not look like "no pharmacies here".
         guard features.isEmpty || !usable.isEmpty else { throw SearchFailure.serviceUnavailable }
 
-        // Photon's radius is not exact, hence the 5% slack.
-        let limitMeters = Double(radius) * 1000 * 1.05
         var seen = Set<Pharmacy.ID>()
         return usable
-            .filter { $0.distanceMeters <= limitMeters && seen.insert($0.id).inserted }
+            .filter { seen.insert($0.id).inserted }
             .sorted { ($0.distanceMeters, $0.id) < ($1.distanceMeters, $1.id) }
-    }
-
-    private static func mapped(_ error: any Error) -> any Error {
-        switch error {
-        case is CancellationError:
-            return error
-        case let error as URLError:
-            switch error.code {
-            case .cancelled:
-                return CancellationError()
-            case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff:
-                return SearchFailure.offline
-            default:
-                return SearchFailure.serviceUnavailable
-            }
-        default:
-            return SearchFailure.serviceUnavailable
-        }
     }
 }
 
@@ -154,14 +109,12 @@ private struct PhotonFeature: Decodable {
     /// Nil when this isn't a pharmacy with a usable id and position.
     func pharmacy(from origin: Coordinate) -> Pharmacy? {
         guard properties.osmValue == "pharmacy", let id, let coordinate else { return nil }
-        let meters = Distance.meters(from: origin, to: coordinate)
         return Pharmacy(
             id: id,
             name: properties.name.nonBlank ?? "Pharmacy",
             coordinate: coordinate,
             address: address,
-            distanceMeters: meters,
-            walkMinutes: Distance.walkMinutes(meters: meters)
+            distanceMeters: origin.meters(to: coordinate)
         )
     }
 
@@ -208,25 +161,3 @@ private extension String {
 private extension String? {
     var nonBlank: String? { flatMap(\.nonBlank) }
 }
-
-// MARK: - Debugging
-
-#if DEBUG
-/// Fails the first search, to exercise the error screen and its retry button.
-actor FailOnceFinder: PharmacyFinding {
-    private let base: any PharmacyFinding
-    private var hasFailed = false
-
-    init(base: any PharmacyFinding) {
-        self.base = base
-    }
-
-    func nearest(to origin: Coordinate) async throws -> PharmacyResults {
-        guard hasFailed else {
-            hasFailed = true
-            throw SearchFailure.serviceUnavailable
-        }
-        return try await base.nearest(to: origin)
-    }
-}
-#endif

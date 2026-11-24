@@ -1,9 +1,13 @@
 import CoreLocation
 
-/// A single position fix. Permission is only requested once `current()` is called.
 @MainActor
-final class LocationService: LocationProviding {
-    private nonisolated static let goodAccuracyMeters = 100.0
+protocol LocationProviding {
+    /// Asks for permission if needed. Throws `LocationError.denied` when the person has to act.
+    func current() async throws -> Origin
+}
+
+/// A single position fix. Permission is only requested once `current()` is called.
+struct LocationService: LocationProviding {
     private nonisolated static let maximumAge: TimeInterval = 60
     private static let fixTimeout: Duration = .seconds(12)
 
@@ -11,24 +15,8 @@ final class LocationService: LocationProviding {
         let session = CLServiceSession(authorization: .whenInUse)
         defer { session.invalidate() }
 
-        do {
-            let fix = try await fix()
-            return Origin(
-                coordinate: Coordinate(
-                    latitude: fix.coordinate.latitude,
-                    longitude: fix.coordinate.longitude
-                ),
-                label: "Your location",
-                source: .gps,
-                accuracyMeters: fix.horizontalAccuracy
-            )
-        } catch let error as LocationError {
-            throw error
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            throw Task.isCancelled ? CancellationError() : LocationError.unavailable
-        }
+        let fix = try await fix()
+        return Origin(coordinate: Coordinate(fix.coordinate), accuracyMeters: fix.horizontalAccuracy)
     }
 
     private func fix() async throws -> CLLocation {
@@ -61,7 +49,7 @@ final class LocationService: LocationProviding {
             else { continue }
 
             await best.record(location)
-            if location.horizontalAccuracy <= goodAccuracyMeters || update.accuracyLimited {
+            if location.horizontalAccuracy <= Origin.goodAccuracyMeters || update.accuracyLimited {
                 return location
             }
         }
@@ -71,8 +59,9 @@ final class LocationService: LocationProviding {
     /// Polls the permission instead of relying on the order of the first updates, and only
     /// starts the clock once it is decided, so reading the prompt doesn't use up the time.
     private static func waitForDeadline() async throws {
+        let manager = CLLocationManager()
         while true {
-            switch CLLocationManager().authorizationStatus {
+            switch manager.authorizationStatus {
             case .notDetermined:
                 try await Task.sleep(for: .milliseconds(250))
             case .denied, .restricted:

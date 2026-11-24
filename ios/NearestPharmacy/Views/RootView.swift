@@ -6,7 +6,6 @@ struct RootView: View {
 
     @State private var isSearchPresented = false
     @State private var isAboutPresented = false
-    @AccessibilityFocusState private var nearestFocused: Bool
 
     var body: some View {
         @Bindable var model = model
@@ -21,25 +20,14 @@ struct RootView: View {
         }
         .tint(Theme.action)
         .mapItemDetailSheet(item: $model.detailItem, displaysMap: false)
-        .sheet(isPresented: $isSearchPresented) { LocationSearchView(model: model) }
+        .sheet(isPresented: $isSearchPresented) {
+            LocationSearchView(
+                isLocationDenied: model.state == .denied,
+                useLocation: searchFromLocation,
+                select: search
+            )
+        }
         .sheet(isPresented: $isAboutPresented) { AboutView() }
-        // Not keyed on `.loading`: the state doesn't change when a search was already loading,
-        // and a location arriving late must not close the sheet while someone types.
-        .onChange(of: model.resolvedPlaceCount) { isSearchPresented = false }
-        // Not `onDismiss`: that waits for the animation, during which a place could still resolve.
-        .onChange(of: isSearchPresented) { _, isPresented in
-            if !isPresented { model.cancelPlaceLookup() }
-        }
-        .onChange(of: model.announcement) { _, announcement in
-            if let announcement { post(announcement) }
-        }
-        .task(id: model.nearest?.id) {
-            guard model.nearest != nil else { return }
-            // VoiceOver ignores a focus request made while the screen is still changing.
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled else { return }
-            nearestFocused = true
-        }
     }
 
     @ViewBuilder
@@ -47,8 +35,8 @@ struct RootView: View {
         switch model.state {
         case .idle:
             HeroView(useLocation: model.useCurrentLocation, search: presentSearch)
-        case .ready:
-            ResultsView(model: model, nearestFocus: $nearestFocused)
+        case .ready(let origin, let pharmacies):
+            ResultsView(model: model, origin: origin, pharmacies: pharmacies, search: presentSearch)
         case .locating, .denied, .loading, .empty, .failed:
             SearchStatusView(model: model, search: presentSearch)
         }
@@ -84,10 +72,16 @@ struct RootView: View {
         isAboutPresented = true
     }
 
-    private func post(_ announcement: Announcement) {
-        var text = AttributedString(announcement.text)
-        text.accessibilitySpeechAnnouncementPriority = .high
-        AccessibilityNotification.Announcement(text).post()
+    private func searchFromLocation() {
+        isSearchPresented = false
+        model.useCurrentLocation()
+    }
+
+    private func search(from origin: Origin) {
+        // A place may still resolve while the closed sheet animates away.
+        guard isSearchPresented else { return }
+        isSearchPresented = false
+        model.search(from: origin)
     }
 }
 
@@ -99,7 +93,9 @@ private struct ResultsView: View {
     }
 
     let model: AppModel
-    let nearestFocus: AccessibilityFocusState<Bool>.Binding
+    let origin: Origin
+    let pharmacies: [Pharmacy]
+    let search: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -116,15 +112,15 @@ private struct ResultsView: View {
                 ForEach(isWide ? [Pane.panel, .map] : [.map, .panel], id: \.self) { pane in
                     switch pane {
                     case .map:
-                        PharmacyMap(model: model)
+                        PharmacyMap(model: model, origin: origin, pharmacies: pharmacies)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     case .panel:
-                        ResultsPanel(model: model, nearestFocus: nearestFocus)
+                        ResultsPanel(model: model, origin: origin, pharmacies: pharmacies, search: search)
                             // VoiceOver reads the results before the map's pins.
                             .accessibilitySortPriority(1)
                             .frame(
-                                width: isWide ? min(400, size.width * 0.45) : nil,
-                                height: isWide ? nil : size.height * panelShare
+                                width: isWide ? panelWidth(in: size.width) : nil,
+                                height: isWide ? nil : panelHeight(in: size.height)
                             )
                     }
                 }
@@ -134,62 +130,97 @@ private struct ResultsView: View {
         .ignoresSafeArea(.keyboard)
     }
 
-    private var panelShare: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 0.7 : 0.55
+    private func panelWidth(in width: CGFloat) -> CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? width * 0.6 : min(400, width * 0.45)
+    }
+
+    private func panelHeight(in height: CGFloat) -> CGFloat {
+        if dynamicTypeSize.isAccessibilitySize { return height * 0.85 }
+        // 430 points show the nearest card and the next heading, if that leaves room for the map.
+        return max(height * 0.55, min(430, height * 0.72))
     }
 }
 
 private struct ResultsPanel: View {
     let model: AppModel
-    let nearestFocus: AccessibilityFocusState<Bool>.Binding
+    let origin: Origin
+    let pharmacies: [Pharmacy]
+    let search: () -> Void
 
+    @AccessibilityFocusState private var nearestFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    if let origin = model.origin {
-                        OriginLine(origin: origin)
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    if !dynamicTypeSize.isAccessibilitySize { originLine }
+                    if let nearest = pharmacies.first {
+                        NearestCard(
+                            model: model,
+                            pharmacy: nearest,
+                            isApproximate: origin.isApproximate,
+                            focus: $nearestFocused
+                        )
+                        .id(nearest.id)
                     }
-                    if let nearest = model.nearest {
-                        NearestCard(model: model, pharmacy: nearest, focus: nearestFocus)
-                            .id(nearest.id)
-                    }
-                    PharmacyList(model: model)
+                    if dynamicTypeSize.isAccessibilitySize { originLine }
+                    PharmacyList(model: model, others: Array(pharmacies.dropFirst()))
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
             .background(Theme.ground)
             .safeAreaInset(edge: .bottom, spacing: 0) { PinnedAttribution() }
             .onChange(of: model.selectedID) { _, selectedID in
                 guard let selectedID else { return }
                 withAnimation(reduceMotion ? nil : .default) {
-                    proxy.scrollTo(selectedID, anchor: .center)
+                    proxy.scrollTo(selectedID, anchor: .top)
                 }
             }
         }
+        .task {
+            // VoiceOver ignores a focus request made while the screen is still changing.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            nearestFocused = true
+        }
+    }
+
+    private var originLine: some View {
+        OriginLine(origin: origin, search: search)
     }
 }
 
 /// OpenStreetMap's license requires the credit to be visible along with the results.
 private struct PinnedAttribution: View {
     var body: some View {
-        AttributionView()
-            .font(.caption)
-            // Larger text would leave little room for the results. About has it at full size.
-            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .background(Theme.sheet)
-            .overlay(alignment: .top) {
-                Theme.hairline.frame(height: 1).ignoresSafeArea(edges: .horizontal)
-            }
+        HStack(spacing: 0) {
+            CreditLink(title: "© OpenStreetMap", address: CreditLink.openStreetMap)
+                .accessibilityLabel("OpenStreetMap contributors, licence information")
+            Text(" · ")
+                .foregroundStyle(Theme.body)
+                .accessibilityHidden(true)
+            CreditLink(title: "Photon", address: CreditLink.photon)
+                .accessibilityLabel("Photon, search service")
+        }
+        .buttonStyle(.textLink)
+        .font(.caption)
+        // Larger text would leave little room for the results. About has it at full size.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .background(Theme.sheet)
+        .overlay(alignment: .top) {
+            Theme.hairline.frame(height: 1).ignoresSafeArea(edges: .horizontal)
+        }
     }
 }
 
 private struct OriginLine: View {
     let origin: Origin
+    let search: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -198,14 +229,10 @@ private struct OriginLine: View {
             if origin.isApproximate {
                 Label("Approximate location, so distances are rough", systemImage: "location.slash")
                     .foregroundStyle(Theme.amber)
+                Button("Search for a place", action: search)
+                    .buttonStyle(.textLink)
             }
         }
         .font(.subheadline)
-    }
-}
-
-extension Origin {
-    var labelInSentence: String {
-        source == .gps ? "your location" : label
     }
 }

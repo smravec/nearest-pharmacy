@@ -3,23 +3,20 @@ import SwiftUI
 /// The pharmacies after the nearest one, which has its own card.
 struct PharmacyList: View {
     let model: AppModel
+    let others: [Pharmacy]
 
     var body: some View {
-        if model.pharmacies.count > 1 {
-            Text("Other pharmacies nearby")
+        if !others.isEmpty {
+            Text("Other pharmacies")
                 .font(.headline)
                 .foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 8)
-            ForEach(rankedOthers, id: \.pharmacy.id) { rank, pharmacy in
-                PharmacyRow(model: model, pharmacy: pharmacy, rank: rank)
+            ForEach(Array(others.enumerated()), id: \.element.id) { index, pharmacy in
+                PharmacyRow(model: model, pharmacy: pharmacy, rank: index + 2)
                     .id(pharmacy.id)
             }
         }
-    }
-
-    private var rankedOthers: [(rank: Int, pharmacy: Pharmacy)] {
-        model.pharmacies.enumerated().dropFirst().map { (rank: $0.offset + 1, pharmacy: $0.element) }
     }
 }
 
@@ -42,7 +39,7 @@ private struct PharmacyRow: View {
             .accessibilityHint("Shows it on the map")
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityAction(named: "Directions") { model.openDirections(to: pharmacy) }
-            .accessibilityAction(named: "Details") { model.showDetails(for: pharmacy) }
+            .accessibilityAction(named: "Hours and details") { model.showDetails(for: pharmacy) }
 
             if isSelected {
                 PharmacyActions(model: model, pharmacy: pharmacy)
@@ -71,14 +68,11 @@ private struct PharmacyRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
-                Text(Format.distance(pharmacy.distanceMeters))
-                    .foregroundStyle(Theme.ink)
-                Text(Format.walk(pharmacy.walkMinutes))
-                    .foregroundStyle(Theme.muted)
-            }
-            .font(.subheadline)
-            .monospacedDigit()
+            // No walking time: a straight-line estimate would look faster than the nearest one's route.
+            Text(Format.distance(pharmacy.distanceMeters))
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(Theme.ink)
         }
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, minHeight: Theme.minimumTarget, alignment: .leading)
@@ -93,7 +87,6 @@ private struct PharmacyRow: View {
         [
             pharmacy.name,
             Format.spokenDistance(pharmacy.distanceMeters),
-            Format.spokenWalk(pharmacy.walkMinutes),
             pharmacy.address,
         ]
         .compactMap(\.self)
@@ -106,43 +99,40 @@ struct AttributionView: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 0) {
                 openStreetMap
-                Text(", search by ")
+                Text(", ")
                 photon
             }
+            .buttonStyle(.textLink)
+            // The targets reach away from each other, so the two lines of text stay together.
             VStack(alignment: .leading, spacing: 0) {
                 openStreetMap
-                HStack(spacing: 0) {
-                    Text("search by ")
-                    photon
-                }
+                    .buttonStyle(TextLinkStyle(alignment: .bottomLeading))
+                photon
+                    .buttonStyle(TextLinkStyle(alignment: .topLeading))
             }
         }
         .foregroundStyle(Theme.body)
-        // Inside a Form row, the default style would open both links with one tap.
-        .buttonStyle(.borderless)
     }
 
-    @ViewBuilder
     private var openStreetMap: some View {
-        link("© OpenStreetMap contributors (ODbL)", to: "https://www.openstreetmap.org/copyright")
+        CreditLink(title: "© OpenStreetMap contributors (ODbL)", address: CreditLink.openStreetMap)
     }
 
-    @ViewBuilder
     private var photon: some View {
-        link("Photon", to: "https://photon.komoot.io")
+        CreditLink(title: "search by Photon", address: CreditLink.photon)
     }
+}
 
-    @ViewBuilder
-    private func link(_ title: String, to address: String) -> some View {
+struct CreditLink: View {
+    static let openStreetMap = "https://www.openstreetmap.org/copyright"
+    static let photon = "https://photon.komoot.io"
+
+    let title: String
+    let address: String
+
+    var body: some View {
         if let url = URL(string: address) {
-            Link(destination: url) {
-                Text(title)
-                    .underline()
-                    .foregroundStyle(Theme.action)
-                    .multilineTextAlignment(.leading)
-                    .frame(minWidth: Theme.minimumTarget, minHeight: Theme.minimumTarget, alignment: .leading)
-                    .contentShape(.rect)
-            }
+            Link(title, destination: url)
         }
     }
 }
