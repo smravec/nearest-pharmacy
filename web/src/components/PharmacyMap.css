@@ -1,0 +1,234 @@
+.pmap {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+.pmap__container {
+  width: 100%;
+  height: 100%;
+}
+
+.pmap__description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Keeps marker z-indexes from competing with the controls and attribution. */
+.pmap .maplibregl-canvas-container {
+  isolation: isolate;
+}
+
+.pmap .maplibregl-canvas:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.pmap .maplibregl-ctrl-attrib {
+  max-width: 100%;
+  background: color-mix(in srgb, var(--sheet) 88%, transparent);
+  color: var(--body);
+  font-family: var(--font-body);
+}
+
+.pmap .maplibregl-ctrl-attrib a {
+  color: var(--body);
+  text-decoration: underline;
+}
+
+.pmap .maplibregl-ctrl-attrib a:focus-visible,
+.pmap button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.pmap__controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+}
+
+.pmap__controls button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--sheet);
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+}
+
+.pmap__controls svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.pmap-pin {
+  z-index: 1;
+  width: 44px;
+  height: 52px;
+  cursor: pointer;
+}
+
+.pmap-pin:hover {
+  z-index: 5;
+}
+
+.pmap-pin__shape {
+  display: block;
+  width: 44px;
+  height: 52px;
+  transform-origin: 50% 96%;
+  transition: transform 160ms ease-out;
+  filter: drop-shadow(0 2px 4px rgb(7 20 39 / 0.3));
+}
+
+.pmap-pin__drop {
+  fill: var(--sheet);
+  stroke: var(--action);
+  stroke-width: 2;
+}
+
+.pmap-pin__cross {
+  fill: var(--action);
+}
+
+.pmap-pin__tag {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--sheet);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.pmap-pin--nearest {
+  z-index: 3;
+}
+
+.pmap-pin--nearest .pmap-pin__shape {
+  transform: scale(1.15);
+}
+
+/* Navy on teal passes contrast in both themes; white on teal does not. */
+.pmap-pin--nearest .pmap-pin__drop {
+  fill: var(--teal);
+  stroke: #0b1b31;
+}
+
+.pmap-pin--nearest .pmap-pin__cross {
+  fill: #0b1b31;
+}
+
+.pmap-pin--nearest .pmap-pin__tag {
+  display: block;
+  bottom: calc(100% + 8px);
+}
+
+.pmap-pin--selected {
+  z-index: 4;
+}
+
+.pmap-pin--selected .pmap-pin__shape {
+  transform: scale(1.3);
+}
+
+.pmap-pin--selected .pmap-pin__drop {
+  fill: var(--action);
+  stroke: var(--on-action);
+}
+
+.pmap-pin--selected .pmap-pin__cross {
+  fill: var(--on-action);
+}
+
+.pmap-pin--selected .pmap-pin__tag {
+  bottom: calc(100% + 16px);
+}
+
+.pmap-user {
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #1c63b7;
+  box-shadow:
+    0 0 0 8px rgb(28 99 183 / 0.22),
+    0 1px 4px rgb(7 20 39 / 0.4);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.pmap--failed {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.pmap--failed:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.pmap__failed-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.pmap__failed-text {
+  margin: 0;
+  color: var(--body);
+}
+
+.pmap__retry {
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--action);
+  color: var(--on-action);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pmap-pin__shape {
+    transition: none;
+  }
+}
