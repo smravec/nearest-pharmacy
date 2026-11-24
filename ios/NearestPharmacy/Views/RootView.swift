@@ -120,6 +120,8 @@ private struct ResultsView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     case .panel:
                         ResultsPanel(model: model, nearestFocus: nearestFocus)
+                            // VoiceOver reads the results before the map's pins.
+                            .accessibilitySortPriority(1)
                             .frame(
                                 width: isWide ? min(400, size.width * 0.45) : nil,
                                 height: isWide ? nil : size.height * panelShare
@@ -130,7 +132,6 @@ private struct ResultsView: View {
         }
         // The search sheet's keyboard must not make this look like a short, wide screen.
         .ignoresSafeArea(.keyboard)
-        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
     }
 
     private var panelShare: CGFloat {
@@ -182,7 +183,7 @@ private struct PinnedAttribution: View {
             .padding(.horizontal)
             .background(Theme.sheet)
             .overlay(alignment: .top) {
-                Theme.hairline.frame(height: 1)
+                Theme.hairline.frame(height: 1).ignoresSafeArea(edges: .horizontal)
             }
     }
 }

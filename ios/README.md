@@ -9,7 +9,7 @@ Open `NearestPharmacy.xcodeproj` in Xcode (developed with 27.2) and run it in a 
 later. For a device, choose your own team under Signing & Capabilities.
 
 To set a position in the simulator: Features › Location › Custom Location, for example Helsinki
-(60.1841, 24.9497).
+Central (60.1719, 24.9414).
 
 ## How it works
 
@@ -24,9 +24,14 @@ To set a position in the simulator: Features › Location › Custom Location, f
 ### Why not MapKit's pharmacy search?
 
 I compared both at ten public points on 2026-11-24. MapKit's pharmacy category returned a vape shop in
-Helsinki and a supplement store in Rovaniemi, and in the Kallio district it missed the nearest
-pharmacy. OpenStreetMap had pharmacies within 5 km of nine of the ten points, and 15 km was enough for the
-tenth. So OpenStreetMap decides what is nearest, and Apple Maps only adds details.
+Helsinki and a supplement store in Rovaniemi. OpenStreetMap had pharmacies within 5 km of nine of the
+ten points, and 15 km was enough for the tenth. So OpenStreetMap decides what is nearest, and Apple
+Maps only adds details.
+
+This has a cost: OpenStreetMap can list a pharmacy that has closed. At one test point (Kallio, Helsinki)
+the nearest one in OpenStreetMap is marked "Permanently Closed" in Apple Maps, and I could not find out
+which is right. MapKit exposes no closure status in code, so the app only shows this after you tap
+Details.
 
 ## Code
 

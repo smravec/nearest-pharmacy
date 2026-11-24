@@ -21,7 +21,7 @@ struct PharmacyMap: View {
 
     var body: some View {
         map
-            .ignoresSafeArea(edges: [.horizontal, .top])
+            .ignoresSafeArea(edges: .horizontal)
             .overlay(alignment: .topTrailing) { controls }
             .mapScope(scope)
             // One handler for all, so the automatic selection that comes with new results
