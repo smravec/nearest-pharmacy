@@ -7,7 +7,7 @@ struct PharmacyList: View {
 
     var body: some View {
         if !others.isEmpty {
-            Text("Other pharmacies nearby")
+            Text("Other pharmacies")
                 .font(.headline)
                 .foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
@@ -68,16 +68,11 @@ private struct PharmacyRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
-                Text(Format.distance(pharmacy.distanceMeters))
-                    .foregroundStyle(Theme.ink)
-                if let walk = pharmacy.estimatedWalk {
-                    Text(Format.walk(walk))
-                        .foregroundStyle(Theme.muted)
-                }
-            }
-            .font(.subheadline)
-            .monospacedDigit()
+            // No walking time: a straight-line estimate would look faster than the nearest one's route.
+            Text(Format.distance(pharmacy.distanceMeters))
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(Theme.ink)
         }
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, minHeight: Theme.minimumTarget, alignment: .leading)
@@ -92,7 +87,6 @@ private struct PharmacyRow: View {
         [
             pharmacy.name,
             Format.spokenDistance(pharmacy.distanceMeters),
-            pharmacy.estimatedWalk.map(Format.spokenWalk),
             pharmacy.address,
         ]
         .compactMap(\.self)

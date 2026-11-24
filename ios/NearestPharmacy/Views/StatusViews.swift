@@ -58,6 +58,7 @@ struct SearchStatusView: View {
             message: "There are none in OpenStreetMap within \(radiusKilometers) km."
         ) {
             primarySearch
+            searchInAppleMaps(near: nil)
         }
     }
 

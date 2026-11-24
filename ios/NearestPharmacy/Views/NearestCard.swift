@@ -30,7 +30,7 @@ struct NearestCard: View {
 
     private var summary: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(isApproximate ? "Pharmacies near you" : "Nearest")
+            Text(isApproximate ? "Near you" : "Nearest")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.tealText)
             Text(pharmacy.name)
@@ -60,7 +60,7 @@ struct NearestCard: View {
 
     private var spokenSummary: String {
         [
-            "\(isApproximate ? "Pharmacies near you" : "Nearest pharmacy"): \(pharmacy.name)",
+            "\(isApproximate ? "Near you" : "Nearest pharmacy"): \(pharmacy.name)",
             "\(Format.spokenDistance(pharmacy.distanceMeters)) in a straight line",
             walk.map(Format.spokenWalk),
             pharmacy.address,
@@ -94,23 +94,24 @@ struct PharmacyActions: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            // Call comes last: it appears late, and must not move Details under a finger.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
                     directions
-                    call
                     details
+                    call
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     directions
                     HStack(spacing: 8) {
-                        call
                         details
+                        call
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     directions
-                    call
                     details
+                    call
                 }
             }
             if let message = place?.message {

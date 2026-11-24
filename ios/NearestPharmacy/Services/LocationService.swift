@@ -59,8 +59,9 @@ struct LocationService: LocationProviding {
     /// Polls the permission instead of relying on the order of the first updates, and only
     /// starts the clock once it is decided, so reading the prompt doesn't use up the time.
     private static func waitForDeadline() async throws {
+        let manager = CLLocationManager()
         while true {
-            switch CLLocationManager().authorizationStatus {
+            switch manager.authorizationStatus {
             case .notDetermined:
                 try await Task.sleep(for: .milliseconds(250))
             case .denied, .restricted:

@@ -138,7 +138,8 @@ final class AppModel {
     private func loadPlace(of pharmacy: Pharmacy) async {
         do {
             let item = try await maps.mapItem(for: pharmacy)
-            guard !Task.isCancelled else { return }
+            // A tap on Details is already asking the same question.
+            guard !Task.isCancelled, details[pharmacy.id] != .loading else { return }
             details[pharmacy.id] = item.map(PlaceDetails.found) ?? .unmatched
         } catch {}
     }

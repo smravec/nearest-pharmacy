@@ -21,9 +21,11 @@ enum WebLink {
     }
 
     static func call(_ phoneNumber: String) -> URL? {
-        let digits = phoneNumber.filter { $0.isASCII && $0.isNumber }
+        // Filtered first: Apple may wrap the number in invisible direction marks.
+        let dialable = phoneNumber.filter { $0 == "+" || ($0.isASCII && $0.isNumber) }
+        let digits = dialable.filter { $0 != "+" }
         guard !digits.isEmpty else { return nil }
-        return URL(string: "tel:\(phoneNumber.hasPrefix("+") ? "+" : "")\(digits)")
+        return URL(string: "tel:\(dialable.hasPrefix("+") ? "+" : "")\(digits)")
     }
 
     private static func url(_ base: String, _ items: [URLQueryItem]) -> URL? {

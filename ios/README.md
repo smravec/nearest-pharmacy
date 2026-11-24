@@ -26,7 +26,8 @@ Central (60.1719, 24.9414).
 ### Why not MapKit's pharmacy search?
 
 Because it returns places that aren't pharmacies. On 2026-11-24 I compared both sources at ten public
-points, each with a 5 km radius. The nearest result of each:
+points, each with a 5 km radius. The nearest result of each,
+in metres rounded down:
 
 | Point | MapKit pharmacy category | OpenStreetMap (Photon) |
 |---|---|---|
@@ -63,15 +64,16 @@ Three small protocols let the Xcode previews run on fakes. In Debug builds the l
 
 ## Limits
 
-- Distances are straight lines. Only the nearest pharmacy gets Apple's walking time; others marked `~` are
-  estimates at 5 km/h, and beyond 3 km the app shows none.
+- Distances are straight lines. Only the nearest pharmacy gets a walking time: Apple's route, or an estimate
+  at 5 km/h marked `~` when there is no route. Beyond 3 km the app shows none.
 - Opening hours aren't checked.
 - Photon is a free public service with no uptime promise and no second source here. If it fails, the app
   says so and offers Try again and Apple Maps. It never reports "no pharmacies" for a failed request.
 - OpenStreetMap and Apple Maps can be out of date, and OpenStreetMap lists some places that only hand out
   orders as pharmacies.
 - Your rounded position is sent to Photon. Apple gets the places you search for, your position for the
-  walking time, and the nearest pharmacy's name. The Google Maps link sends that pharmacy's name and address, or its position, to Google.
+  walking time, and the name of the nearest pharmacy and of any other you open Details for. The Google
+  Maps link sends that pharmacy's name and address, or its position, to Google.
 - English only.
 
 ## Next
