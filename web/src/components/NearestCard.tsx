@@ -111,16 +111,16 @@ export function NearestCard({
           className="np-btn np-btn--primary np-nearest__open"
           onClick={() => onShow(nearestOpen.id)}
         >
-          {/* No break inside the distance. */}
-          Nearest open: {nearestOpen.name}, {formatDistance(nearestOpen.distanceM).replace(' ', '\u00A0')}
+          Nearest open: {nearestOpen.name}, {formatDistance(nearestOpen.distanceM)}
         </button>
       )}
       <p className="np-meta">
         OpenStreetMap may list pharmacies that have closed down. Check before you go.
       </p>
-      {/* The main action, unless a closed pharmacy has an open alternative. */}
+      {/* With an open alternative above, the facts keep these links from reading as its own. */}
+      {nearestOpen && <PharmacyFacts pharmacy={pharmacy} />}
       <PharmacyLinks origin={origin} pharmacy={pharmacy} primary={!nearestOpen} />
-      <PharmacyFacts pharmacy={pharmacy} />
+      {!nearestOpen && <PharmacyFacts pharmacy={pharmacy} />}
       {detailsMissing && (
         <div className="np-nearest__warning">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
