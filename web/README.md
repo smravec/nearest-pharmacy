@@ -19,27 +19,28 @@ search works anywhere.
 ## How it finds pharmacies
 
 1. **Location:** the browser's geolocation, asked for only on click, or an address search.
-2. **Pharmacies:** OpenStreetMap through [Overpass](https://overpass-api.de), within 2, 5, 20, then
-   50 km, stopping at the first radius with three results.
-3. **Fallback:** Overpass is a free shared service that often refuses or stalls. An attempt gets at most
-   2 seconds and isn't retried. Then [Photon](https://photon.komoot.io) answers instead, and
-   Nominatim looks up the opening hours, phone numbers and websites. If that fails, the page says so.
+2. **Pharmacies:** OpenStreetMap through [Photon](https://photon.komoot.io), within 2, 5, 20 or 50 km:
+   the smallest radius with three results.
+3. **Details:** Photon has no opening hours, phone numbers, websites or wheelchair access, so Nominatim
+   looks them up for the listed pharmacies. If that fails, the list still shows and the page says so.
 4. **Order:** straight-line (haversine) distance. Walking time, shown up to 5 km, assumes 5 km/h
    and is labeled as an estimate, because there is no routing service.
 
 | Data | Service |
 |---|---|
-| Pharmacies | Overpass, then Photon with Nominatim |
+| Pharmacies | Photon, details from Nominatim |
 | Address search | Nominatim |
 | Map tiles | OpenFreeMap, drawn by MapLibre GL JS |
 
 Coordinates or the search text go directly from the browser to these services. Nothing is stored.
-Overpass and Photon get the position rounded to about 11 m. In the fallback, Nominatim gets the ids of
-the listed pharmacies, which also shows the area.
+Photon gets the position rounded to about 11 m. Nominatim gets the ids of the listed pharmacies, which
+also shows the area.
 Directions opens Google Maps; for a searched address, its coordinates go along as the start.
 
 ## Decisions
 
+- **No Overpass.** It has every tag in one request, but the public server kept refusing or stalling
+  in browsers. Asking it first only added a wait before Photon.
 - **Search on submit only.** Nominatim's usage policy forbids autocomplete. Submitting the same
   address twice asks once. Requests are limited to one per second in each tab and cached for the
   session. The policy counts all users together, so a real product would need its own Nominatim.
@@ -74,7 +75,7 @@ Directions opens Google Maps; for a searched address, its coordinates go along a
 
 ```
 src/domain/      types, distance, formatting, opening hours
-src/services/    Overpass, Photon, Nominatim, geolocation
+src/services/    Photon, Nominatim, geolocation
 src/hooks/       search state, open states, media queries
 src/components/  interface; map/ owns MapLibre
 src/styles/      tokens and styles

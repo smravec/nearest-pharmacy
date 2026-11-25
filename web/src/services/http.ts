@@ -7,7 +7,6 @@ export async function fetchJson(
   url: string,
   signal: AbortSignal,
   timeoutMs: number,
-  init?: RequestInit,
 ): Promise<unknown> {
   signal.throwIfAborted()
   // Not AbortSignal.any, which Safari lacks before 17.4.
@@ -16,7 +15,7 @@ export async function fetchJson(
   const timer = setTimeout(abort, timeoutMs)
   signal.addEventListener('abort', abort)
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal })
+    const response = await fetch(url, { signal: controller.signal })
     if (!response.ok) throw new ServiceError(`HTTP ${response.status}`)
     return await response.json()
   } catch (error) {
